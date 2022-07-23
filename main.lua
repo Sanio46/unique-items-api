@@ -47,7 +47,10 @@ function mod:ReplaceCollectibleOnInit(collectible)
 
 	local player = Isaac.GetPlayer(0) --Only for Player 1
 	local playerType = player:GetPlayerType()
-	local params = UniqueItemsAPI.GetItemParams(collectible.SubType, player)
+	---@type UniquePlayerParams | nil
+	local playerData = api.uniqueItems[collectible.SubType] ~= nil and api.uniqueItems[collectible.SubType][playerType] or nil
+	if playerData == nil then return end
+	local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetItemParams(collectible.SubType, player) or nil
 	if params == nil then return end
 	local ItemSprite = params.ItemSprite
 	if ItemSprite == nil then return end
@@ -72,7 +75,9 @@ function mod:ReplaceItemCostume(player)
 		if player:HasCollectible(itemID)
 			and (not data.UniqueCostumeSprites or data.UniqueCostumeSprites[itemID] == nil)
 		then
-			local params = UniqueItemsAPI.GetItemParams(itemID, player)
+			local playerData = api.uniqueItems[itemID] ~= nil and api.uniqueItems[itemID][playerType] or nil
+			if playerData == nil then return end
+			local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetItemParams(itemID, player) or nil
 			if params == nil then return end
 
 			if params.CostumeSpritePath or params.NullCostume then
@@ -113,7 +118,10 @@ function mod:ReplaceCollectibleOnItemQueue(player)
 			if player.QueuedItem.Item.ID == itemID
 				and not data.UniqueItemSpriteHeld
 			then
-				local params = UniqueItemsAPI.GetItemParams(itemID, player)
+				local playerType = player:GetPlayerType()
+				local playerData = api.uniqueItems[itemID] ~= nil and api.uniqueItems[itemID][playerType] or nil
+				if playerData == nil then return end
+				local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetItemParams(itemID, player) or nil
 				local sprite = Sprite()
 
 				sprite:Load("gfx/005.100_collectible.anm2", true)
@@ -145,7 +153,10 @@ function mod:ReplaceFamiliarOnInit(familiar)
 	local playerType = player:GetPlayerType()
 	local data = familiar:GetData()
 	local sprite = familiar:GetSprite()
-	local params = UniqueItemsAPI.GetFamiliarParams(familiar.Variant, familiar)
+	---@type UniquePlayerParams | nil
+	local playerData = api.uniqueFamiliars[familiar.Variant] ~= nil and api.uniqueFamiliars[familiar.Variant][playerType] or nil
+	if playerData == nil then return end
+	local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetFamiliarParams(familiar.Variant, player) or nil
 	local originalAnm2 = sprite:GetFilename()
 
 	if params == nil then return end
@@ -200,7 +211,10 @@ function mod:ReplaceKnifeOnInit(knife)
 	local playerType = player:GetPlayerType()
 	local data = knife:GetData()
 	local sprite = knife:GetSprite()
-	local params = UniqueItemsAPI.GetKnifeParams(knife.Variant, knife)
+	---@type UniquePlayerParams | nil
+	local playerData = api.uniqueKnives[knife.Variant] ~= nil and api.uniqueKnives[knife.Variant][playerType] or nil
+	if playerData == nil then return end
+	local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetKnifeParams(knife.Variant, player) or nil
 	local originalAnm2 = sprite:GetFilename()
 
 	if params == nil then return end
@@ -232,8 +246,9 @@ function mod:UpdateCollectibleSprite(collectible)
 	local playerType = player:GetPlayerType()
 	local data = collectible:GetData()
 	local params = UniqueItemsAPI.GetItemParams(collectible.SubType, player, true)
+	---@type UniquePlayerParams | nil
 	local playerData = params ~= nil and api.uniqueItems[collectible.SubType][playerType]
-	local isDisabled = params ~= nil and playerData.Disabled or false
+	local isDisabled = params ~= nil and (playerData.Disabled or playerData.TempDisabled) or false
 
 	if (data.UniqueItemSprite
 		and (
@@ -268,7 +283,7 @@ function mod:UpdateItemCostume(player)
 	for itemID, costumeData in pairs(data.UniqueCostumeSprites) do
 		local params = UniqueItemsAPI.GetItemParams(itemID, player)
 		local playerData = params ~= nil and api.uniqueItems[itemID][playerType]
-		local isDisabled = params ~= nil and playerData.Disabled or nil
+		local isDisabled = params ~= nil and (playerData.Disabled or playerData.TempDisabled) or nil
 
 		if (data.UniqueCostumeSprites[itemID] ~= nil
 			and (
@@ -345,7 +360,7 @@ function mod:UpdateKnifeSprite(knife)
 	local data = knife:GetData()
 	local params = UniqueItemsAPI.GetKnifeParams(knife.Variant, knife)
 	local playerData = params ~= nil and api.uniqueKnives[knife.Variant][playerType]
-	local isDisabled = params ~= nil and playerData.Disabled or false
+	local isDisabled = params ~= nil and (playerData.Disabled or playerData.TempDisabled) or false
 	---@type UniqueKnifeSprite
 	local spriteData = data.UniqueKnifeSprite
 
@@ -386,7 +401,11 @@ function mod:ReplaceSpiritSwordProjectileOnInit(tear)
 	if not parent then return end
 	---@type EntityPlayer
 	local player = parent:ToPlayer() or parent:ToFamiliar().Player
-	local params = UniqueItemsAPI.GetKnifeParams(tearToKnifeVariant[tear.Variant], player)
+	local knifeVariant = tearToKnifeVariant[tear.Variant]
+	---@type UniquePlayerParams | nil
+	local playerData = api.uniqueKnives[knifeVariant] ~= nil and api.uniqueKnives[knifeVariant][playerType] or nil
+	if playerData == nil then return end
+	local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetKnifeParams(knifeVariant, player) or nil
 	if not params then return end
 
 	---@type Sprite
@@ -426,7 +445,11 @@ function mod:ReplaceSwordSplashOnTearDeath(tear)
 			if not parent then return end
 			---@type EntityPlayer
 			local player = parent:ToPlayer() or parent:ToFamiliar().Player
-			local params = UniqueItemsAPI.GetKnifeParams(tearToKnifeVariant[tear.Variant], player)
+			local knifeVariant = tearToKnifeVariant[tear.Variant]
+			---@type UniquePlayerParams | nil
+			local playerData = api.uniqueKnives[knifeVariant] ~= nil and api.uniqueKnives[knifeVariant][playerType] or nil
+			if playerData == nil then return end
+			local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetKnifeParams(knifeVariant, player) or nil
 			if not params then return end
 
 			---@type Sprite

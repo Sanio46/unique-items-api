@@ -63,12 +63,14 @@ end
 ---@field ItemSprite string
 ---@field NullCostume NullItemID
 ---@field CostumeSpritePath string
+---@field DisabledOnFirstLoad boolean
 
 ---@class UniqueFamiliarParams
 ---@field ModName string
 ---@field PlayerType PlayerType
 ---@field FamiliarVariant FamiliarVariant
 ---@field FamiliarSprite table<integer, string> | string
+---@field DisabledOnFirstLoad boolean
 
 ---@class UniqueKnifeParams
 ---@field ModName string
@@ -76,9 +78,12 @@ end
 ---@field KnifeVariant KnifeVariant
 ---@field KnifeSprite table<integer, string> | string
 ---@field SwordProjectile {Beam: string, Splash: string}
+---@field DisabledOnFirstLoad boolean
 
 ---@class UniquePlayerParams
 ---@field Disabled boolean
+---@field TempDisabled boolean
+---@field DisabledOnFirstLoad boolean
 ---@field CurrentMod integer
 ---@field Mods UniqueItemParams | UniqueFamiliarParams | UniqueKnifeParams
 
@@ -287,7 +292,7 @@ local function ShouldDataBeAdded(funcName, params, dataType)
 			if type(params.NullCostume) ~= "number" then
 				callArgumentError(funcName, params.NullCostume, "NullCostume", "NullItemID", true)
 			elseif params.NullCostume == -1 then
-				local err = "Bad Enumeration 'NullCostume' in" ..
+				local err = "Bad Enumeration 'NullCostume' in " ..
 					funcName .. " (Costume returns -1, and does not exist)"
 				callError(err, true)
 			end
@@ -357,7 +362,8 @@ function UniqueItemsAPI.AddCharacterItem(params)
 	end
 	if not itemParams[params.PlayerType] then
 		itemParams[params.PlayerType] = {}
-		itemParams[params.PlayerType].Disabled = false
+		itemParams[params.PlayerType].Disabled = params.DisabledOnFirstLoad or false
+		itemParams[params.PlayerType].TempDisabled = false
 		itemParams[params.PlayerType].Randomized = false
 		itemParams[params.PlayerType].CurrentMod = 1
 		itemParams[params.PlayerType].Mods = {}
@@ -400,7 +406,8 @@ function UniqueItemsAPI.AddCharacterFamiliar(params)
 
 	if not familiarParams[params.PlayerType] then
 		familiarParams[params.PlayerType] = {}
-		familiarParams[params.PlayerType].Disabled = false
+		familiarParams[params.PlayerType].Disabled = params.DisabledOnFirstLoad or false
+		familiarParams[params.PlayerType].TempDisabled = false
 		familiarParams[params.PlayerType].Randomized = false
 		familiarParams[params.PlayerType].CurrentMod = 1
 		familiarParams[params.PlayerType].Mods = {}
@@ -448,7 +455,8 @@ function UniqueItemsAPI.AddCharacterKnife(params)
 
 	if not knifeParams[params.PlayerType] then
 		knifeParams[params.PlayerType] = {}
-		knifeParams[params.PlayerType].Disabled = false
+		knifeParams[params.PlayerType].Disabled = params.DisabledOnFirstLoad or false
+		knifeParams[params.PlayerType].TempDisabled = false
 		knifeParams[params.PlayerType].Randomized = false
 		knifeParams[params.PlayerType].CurrentMod = 1
 		knifeParams[params.PlayerType].Mods = {}
@@ -599,18 +607,19 @@ function UniqueItemsAPI.GetItemParams(itemID, player, noModifier)
 		(api.registeredCharacters[playerType] == nil and api.registeredTainteds[playerType] == nil) then return end
 
 	local playerData = api.uniqueItems[itemID][playerType]
-	if playerData == nil or playerData.Disabled == true then return end
-
 	local params = {}
+
 	for varName, value in pairs(playerData.Mods[playerData.CurrentMod]) do
 		params[varName] = value
 	end
-	if noModifier then return params end
+
+	if noModifier == true then return params end
 	if type(player) == "userdata" then
 		params.Player = player
 	end
 	params.PlayerType = playerType
 	params.ItemID = itemID
+
 	params = api:AddItemModifiers(params)
 
 	return params
@@ -627,9 +636,8 @@ function UniqueItemsAPI.GetFamiliarParams(familiarVariant, familiar, noModifier)
 		(api.registeredCharacters[playerType] == nil and api.registeredTainteds[playerType] == nil) then return end
 
 	local playerData = api.uniqueFamiliars[familiarVariant][playerType]
-	if playerData == nil or playerData.Disabled == true then return end
-
 	local params = {}
+
 	for varName, value in pairs(playerData.Mods[playerData.CurrentMod]) do
 		params[varName] = value
 	end
@@ -662,9 +670,8 @@ function UniqueItemsAPI.GetKnifeParams(knifeVariant, knife, noModifier)
 		(api.registeredCharacters[playerType] == nil and api.registeredTainteds[playerType] == nil) then return end
 
 	local playerData = api.uniqueKnives[knifeVariant][playerType]
-	if playerData == nil or playerData.Disabled == true then return end
-
 	local params = {}
+
 	for varName, value in pairs(playerData.Mods[playerData.CurrentMod]) do
 		params[varName] = value
 	end
@@ -714,7 +721,7 @@ end
 function UniqueItemsAPI.ToggleCharacterItem(itemID, playerType, bool)
 	if not bool or type(bool) ~= "boolean" or not api.uniqueItems[itemID] or not api.uniqueItems[itemID][playerType] then return end
 	local playerParams = api.uniqueItems[itemID][playerType]
-	playerParams.Disabled = not bool
+	playerParams.TempDisabled = not bool
 end
 
 ---@param familiarVariant FamiliarVariant
@@ -724,7 +731,7 @@ function UniqueItemsAPI.ToggleCharacterFamiliar(familiarVariant, playerType, boo
 	if not bool or type(bool) ~= "boolean" or not api.uniqueFamiliars[familiarVariant] or
 		not api.uniqueFamiliars[familiarVariant][playerType] then return end
 	local playerParams = api.uniqueFamiliars[familiarVariant][playerType]
-	playerParams.Disabled = not bool
+	playerParams.TempDisabled = not bool
 end
 
 ---@param kniveVariant KnifeVariant
@@ -734,7 +741,7 @@ function UniqueItemsAPI.ToggleCharacterKnife(kniveVariant, playerType, bool)
 	if not bool or type(bool) ~= "boolean" or not api.uniqueKnives[kniveVariant] or
 		not api.uniqueKnives[kniveVariant][playerType] then return end
 	local playerParams = api.uniqueKnives[kniveVariant][playerType]
-	playerParams.Disabled = not bool
+	playerParams.TempDisabled = not bool
 end
 
 return api
