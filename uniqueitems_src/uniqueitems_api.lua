@@ -607,6 +607,7 @@ function UniqueItemsAPI.GetItemParams(itemID, player, noModifier)
 		(api.registeredCharacters[playerType] == nil and api.registeredTainteds[playerType] == nil) then return end
 
 	local playerData = api.uniqueItems[itemID][playerType]
+	if playerData == nil then return end
 	local params = {}
 
 	for varName, value in pairs(playerData.Mods[playerData.CurrentMod]) do
@@ -635,7 +636,9 @@ function UniqueItemsAPI.GetFamiliarParams(familiarVariant, familiar, noModifier)
 	if api.uniqueFamiliars[familiarVariant] == nil or
 		(api.registeredCharacters[playerType] == nil and api.registeredTainteds[playerType] == nil) then return end
 
+	---@type UniquePlayerParams
 	local playerData = api.uniqueFamiliars[familiarVariant][playerType]
+	if playerData == nil then return end
 	local params = {}
 
 	for varName, value in pairs(playerData.Mods[playerData.CurrentMod]) do
@@ -670,6 +673,7 @@ function UniqueItemsAPI.GetKnifeParams(knifeVariant, knife, noModifier)
 		(api.registeredCharacters[playerType] == nil and api.registeredTainteds[playerType] == nil) then return end
 
 	local playerData = api.uniqueKnives[knifeVariant][playerType]
+	if playerData == nil then return end
 	local params = {}
 
 	for varName, value in pairs(playerData.Mods[playerData.CurrentMod]) do
