@@ -1,4 +1,4 @@
---VERSION 1.0.0
+--VERSION 1.1.1
 
 ---@class UniqueItemSprite
 ---@field CurrentMod integer
@@ -14,7 +14,7 @@ local game = Game()
 local api = include("uniqueitems_src.uniqueitems_api")
 local mcm = include("uniqueitems_src.modConfigMenu")
 local saveData = include("uniqueitems_src.saveData")
-local CurVersion = "1.0"
+local CurVersion = "1.1.1"
 
 saveData:initAPI(api)
 

@@ -2,3 +2,5 @@
 disable.it
 metadata.xml
 thumbnail.gif
+.vscode/settings.json
+.luarc.json
