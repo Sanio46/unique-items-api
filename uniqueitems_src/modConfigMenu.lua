@@ -36,7 +36,8 @@ function mcm:GenerateModConfigMenu(a, CurVersion, noItems)
 		OnChange = function(currentBool)
 			api.isDisabled = currentBool
 		end,
-		Info = "Enables / Disables all content linked with the API. Overrides the current 'Disabled' settings for all unique items."
+		Info =
+		"Enables / Disables all content linked with the API. Overrides the current 'Disabled' settings for all unique items."
 	})
 	ModConfigMenu.AddSetting(modName, "General", {
 		Type = ModConfigMenu.OptionType.BOOLEAN,
@@ -46,12 +47,13 @@ function mcm:GenerateModConfigMenu(a, CurVersion, noItems)
 			if api.isRandomized then
 				onOff = "True"
 			end
-			return "Randomize: "..onOff
+			return "Randomize: " .. onOff
 		end,
 		OnChange = function(currentBool)
 			--For now, nothing.
 		end,
-		Info = "Randomizes settings on what mod is used for every character with every item, if more than one mod is available for that character."
+		Info =
+		"Randomizes settings on what mod is used for every character with every item, if more than one mod is available for that character."
 	})
 
 	local tables = {
@@ -62,24 +64,25 @@ function mcm:GenerateModConfigMenu(a, CurVersion, noItems)
 	for i = 1, #tables do
 		---@param ID CollectibleType | FamiliarVariant | KnifeVariant
 		for ID, itemData in pairs(tables[i]) do
-			---@type GlobalModParams
+			---@type UniqueObjectData
 			itemData = itemData
 			local subcategoryName = "?"
 			if i == 1 then
 				local itemConfig = Isaac.GetItemConfig()
-				subcategoryName = (ID < CollectibleType.NUM_COLLECTIBLES and nameMap.Items[ID]) or api.registeredItems[ID] or itemConfig:GetCollectible(ID).Name
+				subcategoryName = (ID < CollectibleType.NUM_COLLECTIBLES and nameMap.Items[ID]) or
+				api.registeredItems[ID] or itemConfig:GetCollectible(ID).Name
 				ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
 					Name = subcategoryName,
 					Info = "API Settings for item: " .. subcategoryName
 				})
 			elseif i == 2 then
-				subcategoryName = nameMap.Familiars[ID] or api.registeredFamiliars[ID] or "FamiliarVariant"..ID
+				subcategoryName = nameMap.Familiars[ID] or api.registeredFamiliars[ID] or "FamiliarVariant" .. ID
 				ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
 					Name = subcategoryName,
 					Info = "API Settings for familiar: " .. subcategoryName
 				})
 			elseif i == 3 then
-				subcategoryName = nameMap.Knives[ID] or api.registeredKnives[ID] or "KnifeVariant"..ID
+				subcategoryName = nameMap.Knives[ID] or api.registeredKnives[ID] or "KnifeVariant" .. ID
 				ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
 					Name = subcategoryName,
 					Info = "API Settings for knife: " .. subcategoryName
@@ -104,7 +107,7 @@ function mcm:GenerateModConfigMenu(a, CurVersion, noItems)
 					elseif itemData.CurrentModGlobal == -1 then
 						display = "Randomized"
 					end
-					display = "All: "..display
+					display = "All: " .. display
 					return display
 				end,
 				OnChange = function(currentNum)
@@ -124,7 +127,7 @@ function mcm:GenerateModConfigMenu(a, CurVersion, noItems)
 									if itemData.AllMods[itemData.CurrentModGlobal] == modData.ModName then
 										playerData.Randomized = false
 										playerData.Disabled = false
-										playerData.CurrentMod = i
+										playerData.SelectedModIndex = i
 									end
 								end
 							end
@@ -182,7 +185,7 @@ function mcm:GenerateCharacter(subcategoryName, playerType, playerData)
 	ModConfigMenu.AddSetting(modName, subcategoryName, {
 		Type = ModConfigMenu.OptionType.NUMBER,
 		CurrentSetting = function()
-			local num = playerData.CurrentMod
+			local num = playerData.SelectedModIndex
 			if playerData.Randomized then
 				num = -1
 			elseif playerData.Disabled then
@@ -194,14 +197,14 @@ function mcm:GenerateCharacter(subcategoryName, playerType, playerData)
 		Maximum = #playerData.Mods,
 		ModifyBy = 1,
 		Display = function()
-			local display = playerData.Mods[playerData.CurrentMod].ModName
+			local display = playerData.Mods[playerData.SelectedModIndex].ModName
 			local char = api.registeredCharacters[playerType] or api.registeredTainteds[playerType]
 			if playerData.Disabled then
 				display = "Disabled"
 			elseif playerData.Randomized then
 				display = "Randomized"
 			end
-			display = char .. ": "..display
+			display = char .. ": " .. display
 			return display
 		end,
 		OnChange = function(currentNum)
@@ -214,7 +217,7 @@ function mcm:GenerateCharacter(subcategoryName, playerType, playerData)
 			else
 				playerData.Randomized = false
 				playerData.Disabled = false
-				playerData.CurrentMod = currentNum
+				playerData.SelectedModIndex = currentNum
 			end
 		end
 	})

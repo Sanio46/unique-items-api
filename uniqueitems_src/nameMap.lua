@@ -1,4 +1,3 @@
-
 --By Zamiel (because getting translated names isn't supported yet)
 local nameMap = {}
 

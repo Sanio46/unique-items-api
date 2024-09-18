@@ -18,10 +18,10 @@ saveData.APIData = {
 		[CollectibleType.COLLECTIBLE_SAD_ONION] = {
 			CurrentModGlobal = "ThisMod"
 			[PlayerType.PLAYER_ISAAC] = {
-				CurrentMod = "ThisMod"
+				SelectedModIndex = "ThisMod"
 			}
 			["Eevee"] = {
-				CurrentMod = "EeveeMod"
+				SelectedModIndex = "EeveeMod"
 			}
 		}
 	]]
@@ -56,22 +56,29 @@ function saveData:SaveMyData()
 				--itemParams
 				for key2, value2 in pairs(value) do
 					if key2 == "AllMods" then
-						saveData.APIData[tableName][stringID].CurrentModGlobal = value2[api[tableName][ID].CurrentModGlobal]
-						saveData.APIData[tableName][stringID].RandomizedAvailable = api[tableName][ID].RandomizedAvailable
+						saveData.APIData[tableName][stringID].CurrentModGlobal = value2
+						[api[tableName][ID].CurrentModGlobal]
+						saveData.APIData[tableName][stringID].RandomizedAvailable = api[tableName][ID]
+						.RandomizedAvailable
 					elseif type(key2) == "number" and type(value2) == "table" then
 						--playerData
 						for key3, value3 in pairs(value2) do
 							local playerType = key2
-							if key3 == "CurrentMod" then
+							if key3 == "SelectedModIndex" then
 								local itemParams = saveData.APIData[tableName][stringID]
-								local playerName = api.registeredCharacters[playerType] or api.registeredTainteds[playerType]
-								local playerKey = playerType >= PlayerType.NUM_PLAYER_TYPES and (api.registeredTainteds[playerType] and playerName .. "B" or playerName) or tostring(playerType)
-		
+								local playerName = api.registeredCharacters[playerType] or
+								api.registeredTainteds[playerType]
+								local playerKey = playerType >= PlayerType.NUM_PLAYER_TYPES and
+								(api.registeredTainteds[playerType] and playerName .. "B" or playerName) or
+								tostring(playerType)
+
 								if not itemParams[playerKey] then
 									itemParams[playerKey] = {}
 								end
-								itemParams[playerKey].IsTainted = api.registeredTainteds[playerType] == true and true or false
-								itemParams[playerKey].CurrentMod = api[tableName][ID].AllMods[api[tableName][ID][playerType].CurrentMod]
+								itemParams[playerKey].IsTainted = api.registeredTainteds[playerType] == true and true or
+								false
+								itemParams[playerKey].SelectedModIndex = api[tableName][ID].AllMods
+								[api[tableName][ID][playerType].SelectedModIndex]
 								itemParams[playerKey].Disabled = value2.Disabled
 								itemParams[playerKey].Randomized = value2.Randomized
 							end
@@ -106,10 +113,11 @@ function saveData:LoadMyData()
 							end
 						elseif type(key2) == "string" and type(value2) == "table" then
 							for key3, value3 in pairs(value2) do
-								if key3 == "CurrentMod" then
+								if key3 == "SelectedModIndex" then
 									local playerType = tonumber(key2)
 									if playerType == nil and type(playerType) == "string" then
-										local playerName = value2.IsTainted and string.sub(playerType, 1, -2) or playerType
+										local playerName = value2.IsTainted and string.sub(playerType, 1, -2) or
+										playerType
 										playerType = Isaac.GetPlayerTypeByName(playerName, value2.IsTainted)
 									end
 									if itemParams[playerType] ~= nil then
@@ -119,7 +127,7 @@ function saveData:LoadMyData()
 										end
 										for i, modName in ipairs(itemParams.AllMods) do
 											if value3 == modName then
-												itemParams[playerType].CurrentMod = i
+												itemParams[playerType].SelectedModIndex = i
 											end
 										end
 									end
