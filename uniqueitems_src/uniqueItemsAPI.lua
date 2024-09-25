@@ -1,13 +1,17 @@
+local nameMap = require("uniqueitems_src.nameMap")
+
 ---@class UniqueObjectData
 ---@field SelectedModIndex integer
+---@field SelectedPlayerIndex integer
 ---@field AllMods string[]
----@field AllPlayers UniqueObjectParams[]
+---@field AllPlayers UniqueObjectPlayerData[]
+---@field Name string
+---@field DisplayName string
 
 ---@class UniqueObjectPlayerData
----@field Disabled boolean
----@field Randomized boolean
 ---@field SelectedModIndex integer
----@field ModData UniqueObjectModData
+---@field TempDisable boolean
+---@field ModData UniqueObjectModData[]
 
 ---@class UniqueObjectModData
 ---@field ModName string
@@ -40,7 +44,21 @@ local lastRegisteredMod = ""
 UniqueItemsAPI.RandomizeAll = true
 UniqueItemsAPI.DisableAll = true
 UniqueItemsAPI.RegisteredMods = {}
+---@type {Name: string, ModName: string, IsTainted: boolean}[]
 UniqueItemsAPI.RegisteredCharacters = {}
+
+---@type {Collectibles: UniqueObjectData[], Familiars: UniqueObjectData[], Knives: UniqueObjectData[]}
+UniqueItemsAPI.ObjectLookupTable = {
+	Collectibles = {},
+	Familiars = {},
+	Knives = {}
+}
+
+---@type {Normal: UniqueObjectPlayerData[], Tainted: UniqueObjectPlayerData[]}
+UniqueItemsAPI.CharacterLookupTable = {
+	Normal = {},
+	Tainted = {}
+}
 
 ---@type {Collectibles: UniqueObjectData[], Familiars: UniqueObjectData[], Knives: UniqueObjectData[]}
 UniqueItemsAPI.ObjectData = {
@@ -65,58 +83,10 @@ local itemTypeToTableName = {
 	[UniqueItemsAPI.ObjectType.KNIFE] = "Knives",
 }
 
----@type table<PlayerType, string>
-local normalNames = {
-	[PlayerType.PLAYER_ISAAC] = "Isaac",
-	[PlayerType.PLAYER_MAGDALENE] = "Magdalene",
-	[PlayerType.PLAYER_CAIN] = "Cain",
-	[PlayerType.PLAYER_JUDAS] = "Judas",
-	[PlayerType.PLAYER_BLUEBABY] = "Blue Baby",
-	[PlayerType.PLAYER_EVE] = "Eve",
-	[PlayerType.PLAYER_SAMSON] = "Samson",
-	[PlayerType.PLAYER_AZAZEL] = "Azazel",
-	[PlayerType.PLAYER_LAZARUS] = "Lazarus",
-	[PlayerType.PLAYER_EDEN] = "Eden",
-	[PlayerType.PLAYER_THELOST] = "The Lost",
-	[PlayerType.PLAYER_LAZARUS2] = "Lazarus II",
-	[PlayerType.PLAYER_BLACKJUDAS] = "Dark Judas",
-	[PlayerType.PLAYER_LILITH] = "Lilith",
-	[PlayerType.PLAYER_KEEPER] = "Keeper",
-	[PlayerType.PLAYER_APOLLYON] = "Apollyon",
-	[PlayerType.PLAYER_THEFORGOTTEN] = "The Forgotten",
-	[PlayerType.PLAYER_THESOUL] = "The Soul",
-	[PlayerType.PLAYER_BETHANY] = "Bethany",
-	[PlayerType.PLAYER_JACOB] = "Jacob",
-	[PlayerType.PLAYER_ESAU] = "Esau"
-}
----@type table<PlayerType, string>
-local taintedNames = {
-	[PlayerType.PLAYER_ISAAC_B] = "Isaac",
-	[PlayerType.PLAYER_MAGDALENE_B] = "Magdalene",
-	[PlayerType.PLAYER_CAIN_B] = "Cain",
-	[PlayerType.PLAYER_JUDAS_B] = "Judas",
-	[PlayerType.PLAYER_BLUEBABY_B] = "Blue Baby",
-	[PlayerType.PLAYER_EVE_B] = "Eve",
-	[PlayerType.PLAYER_SAMSON_B] = "Samson",
-	[PlayerType.PLAYER_AZAZEL_B] = "Azazel",
-	[PlayerType.PLAYER_LAZARUS_B] = "Alive Lazarus",
-	[PlayerType.PLAYER_EDEN_B] = "Eden",
-	[PlayerType.PLAYER_THELOST_B] = "The Lost",
-	[PlayerType.PLAYER_LILITH_B] = "Lilith",
-	[PlayerType.PLAYER_KEEPER_B] = "Keeper",
-	[PlayerType.PLAYER_APOLLYON_B] = "Apollyon",
-	[PlayerType.PLAYER_THEFORGOTTEN_B] = "The Forgotten",
-	[PlayerType.PLAYER_BETHANY_B] = "Bethany",
-	[PlayerType.PLAYER_JACOB_B] = "Jacob",
-	[PlayerType.PLAYER_LAZARUS2_B] = "Dead Lazarus",
-	[PlayerType.PLAYER_JACOB2_B] = "Ghost Jacob",
-	[PlayerType.PLAYER_THESOUL_B] = "The Soul",
-}
-
 for playerType = 0, PlayerType.NUM_PLAYER_TYPES - 1 do
 	local isTainted = playerType >= PlayerType.PLAYER_ISAAC_B
 	UniqueItemsAPI.RegisteredCharacters[playerType] = {
-		Name = isTainted and taintedNames[playerType] or normalNames[playerType],
+		Name = isTainted and nameMap.TaintedCharacters[playerType] or nameMap.NormalCharacters[playerType],
 		ModName = "Vanilla",
 		IsTainted = isTainted
 	}
@@ -280,17 +250,13 @@ function UniqueItemsAPI.AssignObjectName(objectID, itemName, itemType)
 		callArgumentNumberError(funcName, itemName, 2, "string")
 		return
 	end
-	local itemConfigItem = Isaac.GetItemConfig():GetCollectible(objectID)
 	local uniqueItemTable = itemTypeToTableName[itemType]
 
-	if not UniqueItemsAPI.ObjectData[uniqueItemTable] then
-		local itemData = {}
-		itemData.SelectedModIndex = 1
-		itemData.AllMods = {}
-		itemData.AllPlayers = {}
-		UniqueItemsAPI.ObjectData[uniqueItemTable][objectID] = itemData
+	if not UniqueItemsAPI.ObjectData[uniqueItemTable][objectID] then
+		callError("Error in" .. funcName .. ". Object is not registered. Please use UniqueItemsAPI.AssignUniqueObject.")
+		return
 	end
-	UniqueItemsAPI.ObjectData[uniqueItemTable][objectID].Name = itemName or itemConfigItem.Name
+	UniqueItemsAPI.ObjectData[uniqueItemTable][objectID].DisplayName = itemName
 end
 
 ---@param funcName string
@@ -361,11 +327,11 @@ end
 ---@overload fun(objectID: integer, itemType: UniqueObjectType): UniqueObjectData
 function UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
 	local uniqueItemTable = getUniqueObjectName(itemType)
-	local itemData = UniqueItemsAPI.ObjectData[uniqueItemTable][objectID]
+	local objectData = UniqueItemsAPI.ObjectData[uniqueItemTable][objectID]
 	if playerType then
-		return itemData.AllPlayers[playerType]
+		return objectData.AllPlayers[playerType]
 	else
-		return itemData
+		return objectData
 	end
 end
 
@@ -376,24 +342,40 @@ function UniqueItemsAPI.AssignUniqueObject(params, itemType)
 	if not shouldDataBeAdded(funcName, params, itemType) then return end
 
 	local uniqueItemTable = getUniqueObjectName(itemType)
-	if not UniqueItemsAPI.ObjectData[uniqueItemTable] then
+	if not UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID] then
 		local objectData = {}
 		objectData.SelectedModIndex = 1
+		objectData.SelectedPlayerIndex = 1
 		objectData.AllMods = {}
 		objectData.AllPlayers = {}
+		objectData.Name = nameMap[uniqueItemTable][params.ObjectID].Name or params.ObjectID
+		objectData.DisplayName = "ID" .. objectData.Name
 		UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID] = objectData
+		UniqueItemsAPI.ObjectLookupTable[objectData.Name] = objectData
 	end
 
 	---@type UniqueObjectData
-	local itemData = UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID]
+	local objectData = UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID]
+	local shouldAdd = true
+	for _, modName in pairs(objectData.AllMods) do
+		if modName == lastRegisteredMod then
+			shouldAdd = false
+			break
+		end
+	end
+	if shouldAdd then
+		table.insert(objectData.AllMods, lastRegisteredMod)
+	end
 
-	if not itemData.AllPlayers[params.PlayerType] then
+	if not objectData.AllPlayers[params.PlayerType] then
 		local playerData = {}
-		playerData.Disabled = params.DisableByDefault or false
-		playerData.Randomized = false
-		playerData.SelectedModIndex = 1
+		playerData.SelectedModIndex = params.DisableByDefault and 0 or 1
 		playerData.ModData = {}
-		itemData.AllPlayers[params.PlayerType] = playerData
+		objectData.AllPlayers[params.PlayerType] = playerData
+		local charTypeName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].IsTainted and "TaintedCharacters" or "NormalCharacters"
+		local playerName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].Name
+		local modName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].ModName
+		UniqueItemsAPI.CharacterLookupTable[charTypeName][playerName .. "_" .. modName] = playerData
 	end
 	local playerData = UniqueItemsAPI.GetObjectData(params.ObjectID, itemType, params.PlayerType)
 	local modStats = {
@@ -486,7 +468,13 @@ function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, noModifier
 	if not playerData then return end
 	local params = {}
 
-	for varName, value in pairs(playerData.ModData[playerData.SelectedModIndex]) do
+	local modData = playerData.ModData[playerData.SelectedModIndex]
+	if UniqueItemsAPI.IsObjectRandomized(playerData) and type(entityOrPlayerType) ~= "number" then
+		local ent = entityOrPlayerType
+		---@cast ent Entity
+		modData = playerData.ModData[ent:GetData().UniqueItemsRandomIndex]
+	end
+	for varName, value in pairs(modData) do
 		params[varName] = value
 	end
 
@@ -517,11 +505,21 @@ end
 ---@param playerType PlayerType
 ---@param bool boolean
 ---@param itemType UniqueObjectType
-function UniqueItemsAPI.ToggleCharacterObject(objectID, playerType, bool, itemType)
+function UniqueItemsAPI.SetCharacterObjectAvailability(objectID, playerType, bool, itemType)
 	if not bool or type(bool) ~= "boolean" then return end
 	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
 	if not playerData then return end
-	playerData.Disabled = not bool
+	playerData.TempDisable = not bool
+end
+
+---@param playerData UniqueObjectPlayerData
+function UniqueItemsAPI.IsObjectDisabled(playerData)
+	return playerData.SelectedModIndex == 0 or playerData.TempDisable or UniqueItemsAPI.DisableAll
+end
+
+---@param playerData UniqueObjectPlayerData
+function UniqueItemsAPI.IsObjectRandomized(playerData)
+	return playerData.SelectedModIndex == -1 or UniqueItemsAPI.RandomizeAll
 end
 
 --#endregion
@@ -712,6 +710,7 @@ function UniqueItemsAPI.GetKnifeParams(knifeVariant, knife, noModifier)
 	if params then
 		params.KnifeVariant = params.ObjectID
 		params.KnifeSprite = params.SpritePath or params.Anm2
+		params.DisabledOnFirstLoad = params.DisableByDefault
 	end
 	return params
 end
@@ -742,7 +741,7 @@ end
 ---@param playerType PlayerType
 ---@param bool boolean
 function UniqueItemsAPI.ToggleCharacterItem(itemID, playerType, bool)
-	UniqueItemsAPI.ToggleCharacterObject(itemID, playerType, bool, UniqueItemsAPI.ObjectType.ITEM)
+	UniqueItemsAPI.SetCharacterObjectAvailability(itemID, playerType, bool, UniqueItemsAPI.ObjectType.ITEM)
 end
 
 ---@deprecated
@@ -750,7 +749,7 @@ end
 ---@param playerType PlayerType
 ---@param bool boolean
 function UniqueItemsAPI.ToggleCharacterFamiliar(familiarVariant, playerType, bool)
-	UniqueItemsAPI.ToggleCharacterObject(familiarVariant, playerType, bool, UniqueItemsAPI.ObjectType.FAMILIAR)
+	UniqueItemsAPI.SetCharacterObjectAvailability(familiarVariant, playerType, bool, UniqueItemsAPI.ObjectType.FAMILIAR)
 end
 
 ---@deprecated
@@ -758,7 +757,7 @@ end
 ---@param playerType PlayerType
 ---@param bool boolean
 function UniqueItemsAPI.ToggleCharacterKnife(knifeVariant, playerType, bool)
-	UniqueItemsAPI.ToggleCharacterObject(knifeVariant, playerType, bool, UniqueItemsAPI.ObjectType.FAMILIAR)
+	UniqueItemsAPI.SetCharacterObjectAvailability(knifeVariant, playerType, bool, UniqueItemsAPI.ObjectType.FAMILIAR)
 end
 
 --#endregion

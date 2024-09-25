@@ -19,9 +19,14 @@ function UniqueItemsAPI:OnObjectInit(ent)
 	local itemType = entTypeToItemType[ent.Type]
 	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
 	if not playerData then return end
+	local data = ent:GetData()
+	if UniqueItemsAPI.IsObjectRandomized(playerData) then
+		local rng = RNG()
+		rng:SetSeed(ent.InitSeed, 35)
+		data.UniqueItemsRandomIndex = rng:RandomInt(#playerData.ModData) + 1
+	end
 	local params = UniqueItemsAPI.GetObjectParams(objectID, player, false, itemType)
 	if not params then return end
-	local data = ent:GetData()
 	local sprite = ent:GetSprite()
 	local originalAnm2 = sprite:GetFilename()
 
@@ -92,7 +97,7 @@ function UniqueItemsAPI:UpdateObjectSprite(ent)
 	local objectID = ent.Type == EntityType.ENTITY_PICKUP and ent.SubType or ent.Variant
 	local itemType = entTypeToItemType[ent.Type]
 	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
-	if not playerData or not playerData.Disabled then
+	if not playerData or UniqueItemsAPI.IsObjectDisabled(playerData) then
 		tryResetObjectSprite(ent)
 		return
 	end
@@ -121,7 +126,7 @@ UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_KNIFE_UPDATE, UniqueItemsAPI.Upd
 
 --#region costumes
 
-local itemConfig = Isaac.GetItemConfig()
+local itemConfig = UniqueItemsAPI.ItemConfig
 
 ---@param player EntityPlayer
 ---@param itemID CollectibleType
@@ -135,11 +140,11 @@ local function tryResetCostume(player, itemID)
 end
 
 function UniqueItemsAPI:ReplaceItemCostume(player)
-	for itemID, itemData in pairs(UniqueItemsAPI.ObjectData.Collectibles) do
+	for itemID, objectData in pairs(UniqueItemsAPI.ObjectData.Collectibles) do
 		local playerType = player:GetPlayerType()
 		local data = player:GetData()
 
-		if not itemData[playerType]
+		if not objectData[playerType]
 			or not player:HasCollectible(itemID)
 			or (data.UniqueCostumeSprites
 				and data.UniqueCostumeSprites[itemID] ~= nil
@@ -151,7 +156,7 @@ function UniqueItemsAPI:ReplaceItemCostume(player)
 		end
 
 		local playerData = UniqueItemsAPI.GetObjectData(itemID, UniqueItemsAPI.ObjectType.ITEM, playerType)
-		if not playerData or playerData.Disabled then
+		if not playerData or UniqueItemsAPI.IsObjectDisabled(playerData) then
 			tryResetCostume(player, itemID)
 			goto continue
 		end

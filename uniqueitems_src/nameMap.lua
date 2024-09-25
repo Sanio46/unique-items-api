@@ -1,7 +1,7 @@
 --By Zamiel (because getting translated names isn't supported yet)
 local nameMap = {}
 
-nameMap.Items = {
+nameMap.Collectibles = {
 	[1] = "The Sad Onion",
 	[2] = "The Inner Eye",
 	[3] = "Spoon Bender",
@@ -900,6 +900,52 @@ nameMap.Knives = {
 	[9] = "Notched Axe",
 	[10] = "Spirit Sword",
 	[11] = "Tech Sword",
+}
+
+nameMap.NormalCharacters = {
+	[PlayerType.PLAYER_ISAAC] = "Isaac",
+	[PlayerType.PLAYER_MAGDALENE] = "Magdalene",
+	[PlayerType.PLAYER_CAIN] = "Cain",
+	[PlayerType.PLAYER_JUDAS] = "Judas",
+	[PlayerType.PLAYER_BLUEBABY] = "Blue Baby",
+	[PlayerType.PLAYER_EVE] = "Eve",
+	[PlayerType.PLAYER_SAMSON] = "Samson",
+	[PlayerType.PLAYER_AZAZEL] = "Azazel",
+	[PlayerType.PLAYER_LAZARUS] = "Lazarus",
+	[PlayerType.PLAYER_EDEN] = "Eden",
+	[PlayerType.PLAYER_THELOST] = "The Lost",
+	[PlayerType.PLAYER_LAZARUS2] = "Lazarus II",
+	[PlayerType.PLAYER_BLACKJUDAS] = "Dark Judas",
+	[PlayerType.PLAYER_LILITH] = "Lilith",
+	[PlayerType.PLAYER_KEEPER] = "Keeper",
+	[PlayerType.PLAYER_APOLLYON] = "Apollyon",
+	[PlayerType.PLAYER_THEFORGOTTEN] = "The Forgotten",
+	[PlayerType.PLAYER_THESOUL] = "The Soul",
+	[PlayerType.PLAYER_BETHANY] = "Bethany",
+	[PlayerType.PLAYER_JACOB] = "Jacob",
+	[PlayerType.PLAYER_ESAU] = "Esau"
+}
+nameMap.TaintedCharacters = {
+	[PlayerType.PLAYER_ISAAC_B] = "Isaac",
+	[PlayerType.PLAYER_MAGDALENE_B] = "Magdalene",
+	[PlayerType.PLAYER_CAIN_B] = "Cain",
+	[PlayerType.PLAYER_JUDAS_B] = "Judas",
+	[PlayerType.PLAYER_BLUEBABY_B] = "Blue Baby",
+	[PlayerType.PLAYER_EVE_B] = "Eve",
+	[PlayerType.PLAYER_SAMSON_B] = "Samson",
+	[PlayerType.PLAYER_AZAZEL_B] = "Azazel",
+	[PlayerType.PLAYER_LAZARUS_B] = "Alive Lazarus",
+	[PlayerType.PLAYER_EDEN_B] = "Eden",
+	[PlayerType.PLAYER_THELOST_B] = "The Lost",
+	[PlayerType.PLAYER_LILITH_B] = "Lilith",
+	[PlayerType.PLAYER_KEEPER_B] = "Keeper",
+	[PlayerType.PLAYER_APOLLYON_B] = "Apollyon",
+	[PlayerType.PLAYER_THEFORGOTTEN_B] = "The Forgotten",
+	[PlayerType.PLAYER_BETHANY_B] = "Bethany",
+	[PlayerType.PLAYER_JACOB_B] = "Jacob",
+	[PlayerType.PLAYER_LAZARUS2_B] = "Dead Lazarus",
+	[PlayerType.PLAYER_JACOB2_B] = "Ghost Jacob",
+	[PlayerType.PLAYER_THESOUL_B] = "The Soul",
 }
 
 return nameMap

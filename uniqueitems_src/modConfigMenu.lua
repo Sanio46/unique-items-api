@@ -1,19 +1,23 @@
 local mcm = {}
-local modName = "UniqueItemsAPI"
-local nameMap = require("uniqueitems_src.nameMap")
-local api
 
-local wasLoaded = false
+local modName = UniqueItemsAPI.Name
 
-function mcm:GenerateModConfigMenu(a, CurVersion, noItems)
-	api = a
-	if ModConfigMenu == nil or wasLoaded == true then return end
+local displayPlayers = {
+	Collectibles = {},
+	Familiars = {},
+	Knives = {}
+}
 
-	wasLoaded = true
+function mcm:GenerateModConfigMenu(noItems)
+	if ModConfigMenu == nil then return end
+	if type(ModConfigMenu.GetCategoryIDByName(modName)) == "number" then
+		ModConfigMenu.RemoveCategory(modName)
+	end
+
 	ModConfigMenu.AddSpace(modName, "Info")
 	ModConfigMenu.AddText(modName, "Info", "Unique Items API")
 	ModConfigMenu.AddSpace(modName, "Info")
-	ModConfigMenu.AddText(modName, "Info", "Version " .. CurVersion)
+	ModConfigMenu.AddText(modName, "Info", "Version " .. UniqueItemsAPI.Version)
 	ModConfigMenu.AddSpace(modName, "Info")
 	ModConfigMenu.AddText(modName, "Info", "by Sanio")
 
@@ -25,111 +29,74 @@ function mcm:GenerateModConfigMenu(a, CurVersion, noItems)
 
 	ModConfigMenu.AddSetting(modName, "General", {
 		Type = ModConfigMenu.OptionType.BOOLEAN,
-		CurrentSetting = function() return api.isDisabled end,
+		CurrentSetting = function() return UniqueItemsAPI.DisableAll end,
 		Display = function()
 			local onOff = "False"
-			if api.isDisabled then
+			if UniqueItemsAPI.DisableAll then
 				onOff = "True"
 			end
 			return "Disabled: " .. onOff
 		end,
 		OnChange = function(currentBool)
-			api.isDisabled = currentBool
+			UniqueItemsAPI.DisableAll = currentBool
 		end,
 		Info =
 		"Enables / Disables all content linked with the API. Overrides the current 'Disabled' settings for all unique items."
 	})
 	ModConfigMenu.AddSetting(modName, "General", {
 		Type = ModConfigMenu.OptionType.BOOLEAN,
-		CurrentSetting = function() return api.isRandomized end,
+		CurrentSetting = function() return UniqueItemsAPI.RandomizeAll end,
 		Display = function()
 			local onOff = "False"
-			if api.isRandomized then
+			if UniqueItemsAPI.RandomizeAll then
 				onOff = "True"
 			end
 			return "Randomize: " .. onOff
 		end,
 		OnChange = function(currentBool)
-			--For now, nothing.
+			return UniqueItemsAPI.RandomizeAll
 		end,
 		Info =
 		"Randomizes settings on what mod is used for every character with every item, if more than one mod is available for that character."
 	})
 
-	local tables = {
-		api.uniqueItems,
-		api.uniqueFamiliars,
-		api.uniqueKnives
-	}
-	for i = 1, #tables do
-		---@param ID CollectibleType | FamiliarVariant | KnifeVariant
-		for ID, itemData in pairs(tables[i]) do
-			---@type UniqueObjectData
-			itemData = itemData
-			local subcategoryName = "?"
-			if i == 1 then
-				local itemConfig = Isaac.GetItemConfig()
-				subcategoryName = (ID < CollectibleType.NUM_COLLECTIBLES and nameMap.Items[ID]) or
-				api.registeredItems[ID] or itemConfig:GetCollectible(ID).Name
-				ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
-					Name = subcategoryName,
-					Info = "API Settings for item: " .. subcategoryName
-				})
-			elseif i == 2 then
-				subcategoryName = nameMap.Familiars[ID] or api.registeredFamiliars[ID] or "FamiliarVariant" .. ID
-				ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
-					Name = subcategoryName,
-					Info = "API Settings for familiar: " .. subcategoryName
-				})
-			elseif i == 3 then
-				subcategoryName = nameMap.Knives[ID] or api.registeredKnives[ID] or "KnifeVariant" .. ID
-				ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
-					Name = subcategoryName,
-					Info = "API Settings for knife: " .. subcategoryName
-				})
-			end
+	for tableName, objectTable in pairs(UniqueItemsAPI.ObjectData) do
+		---@param ID integer
+		---@param objectData UniqueObjectData
+		for ID, objectData in pairs(objectTable) do
+			local subcategoryName = objectData.DisplayName
+			ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
+				Name = subcategoryName,
+				Info = "API Settings for" .. string.lower(tableName) .. ": " .. subcategoryName
+			})
 
 			ModConfigMenu.AddSpace(modName, subcategoryName)
 			ModConfigMenu.AddSetting(modName, subcategoryName, {
 				Type = ModConfigMenu.OptionType.NUMBER,
 				CurrentSetting = function()
-					return itemData.CurrentModGlobal
+					return objectData.SelectedModIndex
 				end,
-				Minimum = itemData.RandomizedAvailable and -1 or 0,
-				Maximum = #itemData.AllMods,
+				Minimum = #objectTable > 1 and -1 or 0,
+				Maximum = #objectData.AllMods,
 				ModifyBy = 1,
 				Display = function()
 					local display = ""
-					if itemData.AllMods[itemData.CurrentModGlobal] then
-						display = itemData.AllMods[itemData.CurrentModGlobal]
-					elseif itemData.CurrentModGlobal == 0 then
+					if objectData.AllMods[objectData.SelectedModIndex] then
+						display = objectData.AllMods[objectData.SelectedModIndex]
+					elseif objectData.SelectedModIndex == 0 then
 						display = "Disabled"
-					elseif itemData.CurrentModGlobal == -1 then
+					elseif objectData.SelectedModIndex == -1 then
 						display = "Randomized"
 					end
 					display = "All: " .. display
 					return display
 				end,
 				OnChange = function(currentNum)
-					itemData.CurrentModGlobal = currentNum
-					for var, playerData in pairs(itemData) do
-						if type(var) == "number" then
-							if currentNum == -1 then
-								if #playerData.Mods > 1 then
-									playerData.Disabled = false
-									playerData.Randomized = true
-								end
-							elseif currentNum == 0 then
-								playerData.Randomized = false
-								playerData.Disabled = true
-							else
-								for i, modData in ipairs(playerData.Mods) do
-									if itemData.AllMods[itemData.CurrentModGlobal] == modData.ModName then
-										playerData.Randomized = false
-										playerData.Disabled = false
-										playerData.SelectedModIndex = i
-									end
-								end
+					objectData.SelectedModIndex = currentNum
+					for _, playerData in pairs(objectData.AllPlayers) do
+						for i, modData in ipairs(playerData.ModData) do
+							if objectData.AllMods[objectData.SelectedModIndex] == modData.ModName then
+								playerData.SelectedModIndex = i
 							end
 						end
 					end
@@ -138,89 +105,53 @@ function mcm:GenerateModConfigMenu(a, CurVersion, noItems)
 			})
 
 			ModConfigMenu.AddSpace(modName, subcategoryName)
-			ModConfigMenu.AddTitle(modName, subcategoryName, "Normal Characters")
+			ModConfigMenu.AddTitle(modName, subcategoryName, "Character")
 			ModConfigMenu.AddSpace(modName, subcategoryName)
 
-			local shouldNA = true
-			--Isaac is put at the very end due to their index of 0, but I don't want to change the system more than it has to, so this is forcing Isaac first if he's available
-			if itemData[PlayerType.PLAYER_ISAAC] ~= nil then
-				if api.registeredCharacters[PlayerType.PLAYER_ISAAC] then
-					mcm:GenerateCharacter(subcategoryName, PlayerType.PLAYER_ISAAC, itemData[PlayerType.PLAYER_ISAAC])
-					shouldNA = false
+			displayPlayers[tableName][ID] = {}
+			local playerNames = displayPlayers[tableName][ID]
+			for playerType, _ in pairs(objectData.AllPlayers) do
+				table.insert(playerNames, playerType)
+			end
+			table.sort(playerNames)
+
+			ModConfigMenu.AddSetting(modName, subcategoryName, {
+				Type = ModConfigMenu.OptionType.NUMBER,
+				CurrentSetting = function()
+					return objectData.SelectedPlayerIndex
+				end,
+				Mimumum = 1,
+				Maximum = #playerNames,
+				ModifyBy = 1,
+				Display = function()
+					return UniqueItemsAPI.RegisteredCharacters[objectData.AllPlayers[objectData.SelectedPlayerIndex]]
+				end,
+				OnChange = function(currentNum)
+					objectData.SelectedPlayerIndex = currentNum
 				end
-			end
-			for playerType, playerData in pairs(itemData) do
-				if playerType ~= PlayerType.PLAYER_ISAAC and type(playerType) == "number" then
-					if api.registeredCharacters[playerType] then
-						mcm:GenerateCharacter(subcategoryName, playerType, playerData)
-						shouldNA = false
-					end
-				end
-			end
-			if shouldNA then
-				ModConfigMenu.AddText(modName, subcategoryName, "N/A")
-			end
+			})
 
 			ModConfigMenu.AddSpace(modName, subcategoryName)
-			ModConfigMenu.AddTitle(modName, subcategoryName, "Tainted Characters")
+			ModConfigMenu.AddTitle(modName, subcategoryName, "Available Packs")
 			ModConfigMenu.AddSpace(modName, subcategoryName)
-
-			local shouldNATainted = true
-			for playerType, playerData in pairs(itemData) do
-				if type(playerType) == "number" then
-					if api.registeredTainteds[playerType] then
-						mcm:GenerateCharacter(subcategoryName, playerType, playerData)
-						shouldNATainted = false
-					end
+			
+			ModConfigMenu.AddSetting(modName, subcategoryName, {
+				Type = ModConfigMenu.OptionType.NUMBER,
+				CurrentSetting = function()
+					return objectData.AllPlayers[objectData.SelectedPlayerIndex].SelectedModIndex
+				end,
+				Minimum = 1,
+				Maximum = #objectData.AllPlayers[objectData.SelectedPlayerIndex].ModData[objectData.AllPlayers[objectData.SelectedPlayerIndex].SelectedModIndex],
+				ModifyBy = 1,
+				Display = function()
+					return objectData.AllPlayers[objectData.SelectedPlayerIndex].ModData[objectData.AllPlayers[objectData.SelectedPlayerIndex]].ModName
+				end,
+				OnChange = function(currentNum)
+					objectData.AllPlayers[objectData.SelectedPlayerIndex].SelectedModIndex = currentNum
 				end
-			end
-			if shouldNATainted then
-				ModConfigMenu.AddText(modName, subcategoryName, "N/A")
-			end
+			})
 		end
 	end
-end
-
-function mcm:GenerateCharacter(subcategoryName, playerType, playerData)
-	ModConfigMenu.AddSetting(modName, subcategoryName, {
-		Type = ModConfigMenu.OptionType.NUMBER,
-		CurrentSetting = function()
-			local num = playerData.SelectedModIndex
-			if playerData.Randomized then
-				num = -1
-			elseif playerData.Disabled then
-				num = 0
-			end
-			return num
-		end,
-		Minimum = #playerData.Mods > 1 and -1 or 0,
-		Maximum = #playerData.Mods,
-		ModifyBy = 1,
-		Display = function()
-			local display = playerData.Mods[playerData.SelectedModIndex].ModName
-			local char = api.registeredCharacters[playerType] or api.registeredTainteds[playerType]
-			if playerData.Disabled then
-				display = "Disabled"
-			elseif playerData.Randomized then
-				display = "Randomized"
-			end
-			display = char .. ": " .. display
-			return display
-		end,
-		OnChange = function(currentNum)
-			if currentNum == -1 then
-				playerData.Disabled = false
-				playerData.Randomized = true
-			elseif currentNum == 0 then
-				playerData.Disabled = true
-				playerData.Randomized = false
-			else
-				playerData.Randomized = false
-				playerData.Disabled = false
-				playerData.SelectedModIndex = currentNum
-			end
-		end
-	})
 end
 
 return mcm
