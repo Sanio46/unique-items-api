@@ -27,13 +27,12 @@ end
 
 UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, UniqueItemsAPI.OnPostGameStarted)
 
----@param playerData {Name: string, ModName: string, IsTainted: boolean}
+---@param playerData {Name: string, IsTainted: boolean}
 local function getPlayerSaveIndex(playerData)
 	local name = playerData.Name
 	local taintedSuffix = playerData.IsTainted and ".B" or ""
 	name = name .. taintedSuffix
-	local modName = playerData.ModName
-	return table.concat({ name, modName }, "_")
+	return name
 end
 
 ---@param objectTypeName string
@@ -100,8 +99,7 @@ local function extractPlayerIndexData(playerSaveIndex)
 	if isTainted then
 		name = string.sub(name, 1, -3)
 	end
-	local modName = string.sub(playerSaveIndex, sepEnd + 1, -1)
-	return name, isTainted, modName
+	return name, isTainted
 end
 
 function UniqueItemsAPI:OnPostDataLoad(saveData)
@@ -120,8 +118,8 @@ function UniqueItemsAPI:OnPostDataLoad(saveData)
 			end
 			objectData.SelectedModIndex = objectState
 			for playerSaveIndex, playerSaveState in pairs(objectSave.PlayerData) do
-				local name, isTainted, modName = extractPlayerIndexData(playerSaveIndex)
-				local playerData = UniqueItemsAPI.ObjectLookupTable[isTainted and "TaintedCharacters" or "NormalCharacters"][name .. "_" .. modName]
+				local name, isTainted = extractPlayerIndexData(playerSaveIndex)
+				local playerData = UniqueItemsAPI.CharacterLookupTable[isTainted and "Tainted" or "Normal"][name]
 				if not playerData then goto continue end
 				local playerState = getObjectState(playerData.ModData, playerSaveState)
 				if not playerState then

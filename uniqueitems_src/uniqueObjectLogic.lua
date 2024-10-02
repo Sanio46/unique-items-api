@@ -19,7 +19,7 @@ function UniqueItemsAPI:OnObjectInit(ent)
 	local itemType = entTypeToItemType[ent.Type]
 	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
 	if not playerData then return end
-	local data = ent:GetData()
+	local data = player:GetData()
 	if UniqueItemsAPI.IsObjectRandomized(playerData) then
 		local rng = RNG()
 		rng:SetSeed(ent.InitSeed, 35)
@@ -51,9 +51,8 @@ end
 
 UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_INIT, UniqueItemsAPI.OnObjectInit,
 	PickupVariant.PICKUP_COLLECTIBLE)
-UniqueItemsAPI:AddCallback(ModCallbacks.MC_FAMILIAR_INIT, UniqueItemsAPI.OnObjectInit, PickupVariant.PICKUP_COLLECTIBLE)
-UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_KNIFE_INIT, UniqueItemsAPI.OnObjectInit, PickupVariant
-	.PICKUP_COLLECTIBLE)
+UniqueItemsAPI:AddCallback(ModCallbacks.MC_FAMILIAR_INIT, UniqueItemsAPI.OnObjectInit)
+UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_KNIFE_INIT, UniqueItemsAPI.OnObjectInit)
 
 ---@param ent Entity
 local function tryResetObjectSprite(ent)

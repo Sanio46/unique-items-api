@@ -41,8 +41,8 @@ local nameMap = require("uniqueitems_src.nameMap")
 
 local lastRegisteredMod = ""
 
-UniqueItemsAPI.RandomizeAll = true
-UniqueItemsAPI.DisableAll = true
+UniqueItemsAPI.RandomizeAll = false
+UniqueItemsAPI.DisableAll = false
 UniqueItemsAPI.RegisteredMods = {}
 ---@type {Name: string, ModName: string, IsTainted: boolean}[]
 UniqueItemsAPI.RegisteredCharacters = {}
@@ -155,6 +155,16 @@ end
 function UniqueItemsAPI.TryGetPlayer(ent)
 	if ent:ToPlayer() then return ent:ToPlayer() end
 	local spawnEnt = ent.SpawnerEntity
+	if ent.Type == EntityType.ENTITY_PICKUP then
+		for index = 0, UniqueItemsAPI.Game:GetNumPlayers() - 1 do
+			local player = Isaac.GetPlayer(index)
+			if not player:IsDead()
+				and not player:IsCoopGhost()
+			then
+				return player
+			end
+		end
+	end
 	if not spawnEnt then return end
 
 	if spawnEnt:ToPlayer() then
@@ -283,8 +293,9 @@ local function shouldDataBeAdded(funcName, params, dataType)
 	then
 		callArgumentError(funcName, params.ObjectID, "ID", "number", true)
 	end
-	if params.SpritePath == nil
-		or type(params.SpritePath) ~= "table"
+	if (params.SpritePath == nil and params.Anm2 == nil)
+		or (params.SpritePath ~= nil and type(params.SpritePath) ~= "table"
+			or params.Anm2 ~= nil and type(params.Anm2) ~= "string")
 	then
 		callArgumentError(funcName, params.SpritePath, "SpritePath", "table", true)
 	end
@@ -323,11 +334,12 @@ end
 ---@param objectID integer
 ---@param itemType UniqueObjectType
 ---@param playerType? PlayerType
----@return UniqueObjectPlayerData
+---@return UniqueObjectPlayerData?
 ---@overload fun(objectID: integer, itemType: UniqueObjectType): UniqueObjectData
 function UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
 	local uniqueItemTable = getUniqueObjectName(itemType)
 	local objectData = UniqueItemsAPI.ObjectData[uniqueItemTable][objectID]
+	if not objectData then return end
 	if playerType then
 		return objectData.AllPlayers[playerType]
 	else
@@ -348,10 +360,12 @@ function UniqueItemsAPI.AssignUniqueObject(params, itemType)
 		objectData.SelectedPlayerIndex = 1
 		objectData.AllMods = {}
 		objectData.AllPlayers = {}
-		objectData.Name = nameMap[uniqueItemTable][params.ObjectID].Name or params.ObjectID
-		objectData.DisplayName = "ID" .. objectData.Name
+		objectData.Name = nameMap[uniqueItemTable][params.ObjectID] or params.ObjectID
+		objectData.DisplayName = tonumber(objectData.Name) and
+		string.gsub(uniqueItemTable, 1, -2) .. " ID " .. objectData.Name or objectData.Name
 		UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID] = objectData
 		UniqueItemsAPI.ObjectLookupTable[objectData.Name] = objectData
+		print(uniqueItemTable, params.ObjectID, objectData.Name)
 	end
 
 	---@type UniqueObjectData
@@ -372,12 +386,13 @@ function UniqueItemsAPI.AssignUniqueObject(params, itemType)
 		playerData.SelectedModIndex = params.DisableByDefault and 0 or 1
 		playerData.ModData = {}
 		objectData.AllPlayers[params.PlayerType] = playerData
-		local charTypeName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].IsTainted and "TaintedCharacters" or "NormalCharacters"
+		local charTypeName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].IsTainted and "Tainted" or "Normal"
 		local playerName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].Name
 		local modName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].ModName
 		UniqueItemsAPI.CharacterLookupTable[charTypeName][playerName .. "_" .. modName] = playerData
 	end
 	local playerData = UniqueItemsAPI.GetObjectData(params.ObjectID, itemType, params.PlayerType)
+	---@cast playerData UniqueObjectPlayerData
 	local modStats = {
 		ModName = lastRegisteredMod,
 		SpritePath = params.SpritePath,
@@ -412,7 +427,7 @@ end
 ---@param funcCondition function
 ---@param funcCallback function
 ---@param itemType UniqueObjectType
-function UniqueItemsAPI.AddObjectModifier(modifierName, funcCondition, funcCallback, itemType)
+function UniqueItemsAPI.AssignObjectModifier(modifierName, funcCondition, funcCallback, itemType)
 	local funcName = "AddUniqueObjectModifier"
 	local objectName = getUniqueObjectName(itemType)
 
@@ -463,17 +478,17 @@ function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, noModifier
 		playerType = player:GetPlayerType()
 	end
 	---@cast playerType PlayerType
-
 	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
 	if not playerData then return end
 	local params = {}
-
 	local modData = playerData.ModData[playerData.SelectedModIndex]
+
 	if UniqueItemsAPI.IsObjectRandomized(playerData) and type(entityOrPlayerType) ~= "number" then
 		local ent = entityOrPlayerType
 		---@cast ent Entity
 		modData = playerData.ModData[ent:GetData().UniqueItemsRandomIndex]
 	end
+
 	for varName, value in pairs(modData) do
 		params[varName] = value
 	end
@@ -484,6 +499,7 @@ function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, noModifier
 
 	params.PlayerType = playerType
 	params.ItemID = objectID
+	params.ItemType = itemType
 
 	if noModifier then return params end
 
@@ -608,7 +624,7 @@ function UniqueItemsAPI.AddCharacterFamiliar(params)
 		---@cast spritePath string[]
 		params.SpritePath = spritePath
 	end
-	UniqueItemsAPI.AssignUniqueObject(params, UniqueItemsAPI.ObjectType.ITEM)
+	UniqueItemsAPI.AssignUniqueObject(params, UniqueItemsAPI.ObjectType.FAMILIAR)
 end
 
 ---@deprecated
@@ -623,7 +639,7 @@ function UniqueItemsAPI.AddCharacterKnife(params)
 		---@cast spritePath string[]
 		params.SpritePath = spritePath
 	end
-	UniqueItemsAPI.AssignUniqueObject(params, UniqueItemsAPI.ObjectType.ITEM)
+	UniqueItemsAPI.AssignUniqueObject(params, UniqueItemsAPI.ObjectType.KNIFE)
 end
 
 ---@deprecated
@@ -631,7 +647,7 @@ end
 ---@param funcCondition function
 ---@param funcCallback function
 function UniqueItemsAPI.AddItemModifier(modifierName, funcCondition, funcCallback)
-	UniqueItemsAPI.AddObjectModifier(modifierName, funcCondition, funcCallback, UniqueItemsAPI.ObjectType.ITEM)
+	UniqueItemsAPI.AssignObjectModifier(modifierName, funcCondition, funcCallback, UniqueItemsAPI.ObjectType.ITEM)
 end
 
 ---@deprecated
@@ -639,7 +655,7 @@ end
 ---@param funcCondition function
 ---@param funcCallback function
 function UniqueItemsAPI.AddFamiliarModifier(modifierName, funcCondition, funcCallback)
-	UniqueItemsAPI.AddObjectModifier(modifierName, funcCondition, funcCallback, UniqueItemsAPI.ObjectType.FAMILIAR)
+	UniqueItemsAPI.AssignObjectModifier(modifierName, funcCondition, funcCallback, UniqueItemsAPI.ObjectType.FAMILIAR)
 end
 
 ---@deprecated
@@ -647,7 +663,7 @@ end
 ---@param funcCondition function
 ---@param funcCallback function
 function UniqueItemsAPI.AddKnifeModifier(modifierName, funcCondition, funcCallback)
-	UniqueItemsAPI.AddObjectModifier(modifierName, funcCondition, funcCallback, UniqueItemsAPI.ObjectType.KNIFE)
+	UniqueItemsAPI.AssignObjectModifier(modifierName, funcCondition, funcCallback, UniqueItemsAPI.ObjectType.KNIFE)
 end
 
 ---@deprecated
