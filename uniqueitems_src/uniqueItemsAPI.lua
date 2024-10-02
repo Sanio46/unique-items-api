@@ -44,7 +44,7 @@ local lastRegisteredMod = ""
 UniqueItemsAPI.RandomizeAll = false
 UniqueItemsAPI.DisableAll = false
 UniqueItemsAPI.RegisteredMods = {}
----@type {Name: string, ModName: string, IsTainted: boolean}[]
+---@type {Name: string, IsTainted: boolean}[]
 UniqueItemsAPI.RegisteredCharacters = {}
 
 ---@type {Collectibles: UniqueObjectData[], Familiars: UniqueObjectData[], Knives: UniqueObjectData[]}
@@ -86,8 +86,7 @@ local itemTypeToTableName = {
 for playerType = 0, PlayerType.NUM_PLAYER_TYPES - 1 do
 	local isTainted = playerType >= PlayerType.PLAYER_ISAAC_B
 	UniqueItemsAPI.RegisteredCharacters[playerType] = {
-		Name = isTainted and nameMap.TaintedCharacters[playerType] or nameMap.NormalCharacters[playerType],
-		ModName = "Vanilla",
+		Name = isTainted and "Tainted " .. nameMap.TaintedCharacters[playerType] or nameMap.NormalCharacters[playerType],
 		IsTainted = isTainted
 	}
 end
@@ -240,9 +239,12 @@ function UniqueItemsAPI.RegisterCharacter(name, isTainted, displayName)
 	end
 	local playerType = Isaac.GetPlayerTypeByName(name, isTainted)
 	if playerType == -1 then return end
+	if isTainted and not displayName then
+		displayName = "Tainted " .. name
+	end
+	displayName = displayName or name
 	UniqueItemsAPI.RegisteredCharacters[playerType] = {
 		Name = displayName or name,
-		ModName = lastRegisteredMod,
 		IsTainted = isTainted
 	}
 end
@@ -385,10 +387,9 @@ function UniqueItemsAPI.AssignUniqueObject(params, itemType)
 		playerData.SelectedModIndex = params.DisableByDefault and 0 or 1
 		playerData.ModData = {}
 		objectData.AllPlayers[params.PlayerType] = playerData
-		local charTypeName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].IsTainted and "Tainted" or "Normal"
+		local charType = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].IsTainted and "Tainted" or "Normal"
 		local playerName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].Name
-		local modName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].ModName
-		UniqueItemsAPI.CharacterLookupTable[charTypeName][playerName .. "_" .. modName] = playerData
+		UniqueItemsAPI.CharacterLookupTable[charType][playerName] = playerData
 	end
 	local playerData = UniqueItemsAPI.GetObjectData(params.ObjectID, itemType, params.PlayerType)
 	---@cast playerData UniqueObjectPlayerData

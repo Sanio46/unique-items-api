@@ -9,7 +9,7 @@ UniqueItemsAPI.ItemConfig = Isaac.GetItemConfig()
 
 include("uniqueitems_src.uniqueItemsAPI")
 include("uniqueitems_src.uniqueObjectLogic")
-include("uniqueitems_src.modConfigMenu")
+local mcm = include("uniqueitems_src.modConfigMenu")
 --local saveData = include("uniqueitems_src.saveData")
 UniqueItemsAPI.Version = "1.2"
 --saveData:initAPI(api)
@@ -22,7 +22,7 @@ function UniqueItemsAPI:OnPostGameStarted()
 			break
 		end
 	end
-	--mcm:GenerateModConfigMenu(noItems)
+	mcm:GenerateModConfigMenu(noItems)
 end
 
 UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, UniqueItemsAPI.OnPostGameStarted)
