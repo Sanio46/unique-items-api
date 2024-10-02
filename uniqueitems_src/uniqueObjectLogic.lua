@@ -18,7 +18,7 @@ function UniqueItemsAPI:OnObjectInit(ent)
 	local objectID = ent.Type == EntityType.ENTITY_PICKUP and ent.SubType or ent.Variant
 	local itemType = entTypeToItemType[ent.Type]
 	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
-	if not playerData then return end
+	if not playerData or UniqueItemsAPI.IsObjectDisabled(playerData) then return end
 	local data = player:GetData()
 	if UniqueItemsAPI.IsObjectRandomized(playerData) then
 		local rng = RNG()
@@ -143,7 +143,7 @@ function UniqueItemsAPI:ReplaceItemCostume(player)
 		local playerType = player:GetPlayerType()
 		local data = player:GetData()
 
-		if not objectData[playerType]
+		if not objectData.AllPlayers[playerType]
 			or not player:HasCollectible(itemID)
 			or (data.UniqueCostumeSprites
 				and data.UniqueCostumeSprites[itemID] ~= nil
@@ -151,17 +151,20 @@ function UniqueItemsAPI:ReplaceItemCostume(player)
 				and data.UniqueCostumeSprites[itemID].PlayerType == playerType
 			)
 		then
+			print("womp womp 1")
 			goto continue
 		end
 
 		local playerData = UniqueItemsAPI.GetObjectData(itemID, UniqueItemsAPI.ObjectType.ITEM, playerType)
 		if not playerData or UniqueItemsAPI.IsObjectDisabled(playerData) then
+			print("womp womp 2")
 			tryResetCostume(player, itemID)
 			goto continue
 		end
 		local params = UniqueItemsAPI.GetObjectParams(itemID, player, false, UniqueItemsAPI.ObjectType.ITEM)
 		if not params then
 			tryResetCostume(player, itemID)
+			print("womp womp 3")
 			goto continue
 		end
 
@@ -183,7 +186,7 @@ function UniqueItemsAPI:ReplaceItemCostume(player)
 			local itemConfigItem = itemConfig:GetCollectible(itemID)
 			local shouldAddCostume = itemConfigItem.Costume.ID ~= -1 and itemConfigItem.Type == ItemType.ITEM_ACTIVE and
 				player:GetEffects():HasCollectibleEffect(itemID) or
-				itemConfig.Config.ShouldAddCostumeOnPickup(itemConfigItem)
+				ItemConfig.Config.ShouldAddCostumeOnPickup(itemConfigItem)
 
 			if shouldAddCostume then
 				--We don't need to worry about other layers because...this function is bugged to replace all layers! Woo...

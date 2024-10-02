@@ -5,7 +5,7 @@ UniqueItemsAPI = RegisterMod("Unique Items API", 1)
 local saveManager = include("uniqueitems_src.save_manager")
 saveManager.Init(UniqueItemsAPI)
 UniqueItemsAPI.Game = Game()
-UniqueItemsAPI.ItemConfig = UniqueItemsAPI.ItemConfig
+UniqueItemsAPI.ItemConfig = Isaac.GetItemConfig()
 
 include("uniqueitems_src.uniqueItemsAPI")
 include("uniqueitems_src.uniqueObjectLogic")
