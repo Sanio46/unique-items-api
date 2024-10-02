@@ -1,5 +1,7 @@
 local nameMap = require("uniqueitems_src.nameMap")
 
+--#region Class definitions
+
 ---@class UniqueObjectData
 ---@field SelectedModIndex integer
 ---@field SelectedPlayerIndex integer
@@ -39,6 +41,9 @@ local nameMap = require("uniqueitems_src.nameMap")
 ---@field KnifeSprite string | string[]
 ---@field DisabledOnFirstLoad boolean
 
+--#endregion
+--#region Variables
+
 local lastRegisteredMod = ""
 
 UniqueItemsAPI.RandomizeAll = false
@@ -77,7 +82,7 @@ UniqueItemsAPI.ObjectType = {
 	FAMILIAR = 2,
 	KNIFE = 3
 }
-local itemTypeToTableName = {
+local objectTypeToTableName = {
 	[UniqueItemsAPI.ObjectType.ITEM] = "Collectibles",
 	[UniqueItemsAPI.ObjectType.FAMILIAR] = "Familiars",
 	[UniqueItemsAPI.ObjectType.KNIFE] = "Knives",
@@ -91,7 +96,8 @@ for playerType = 0, PlayerType.NUM_PLAYER_TYPES - 1 do
 	}
 end
 
---#region helper functions
+--#endregion
+--#region Helper functions
 
 ---@param funcName string
 ---@param invalidVar any
@@ -175,9 +181,13 @@ function UniqueItemsAPI.TryGetPlayer(ent)
 	end
 end
 
---#endregion
+---@return "Collectibles" | "Familiars" | "Knives"
+local function getUniqueObjectName(objectType)
+	return objectTypeToTableName[objectType]
+end
 
---#region api
+--#endregion
+--#region API
 
 ---@param name string
 function UniqueItemsAPI.IsModRegistered(name)
@@ -208,6 +218,13 @@ function UniqueItemsAPI.IsCharacterRegistered(name, isTainted)
 	end
 	local playerType = Isaac.GetPlayerTypeByName(name, isTainted)
 	return UniqueItemsAPI.RegisteredCharacters[playerType] ~= nil
+end
+
+---@param objectID integer
+---@param objectType UniqueObjectType
+function UniqueItemsAPI.IsObjectIDRegistered(objectID, objectType)
+	local uniqueTable = getUniqueObjectName(objectType)
+	return UniqueItemsAPI.ObjectData[uniqueTable][objectID] ~= nil
 end
 
 ---@param modName string
@@ -251,8 +268,8 @@ end
 
 ---@param objectID CollectibleType
 ---@param itemName string
----@param itemType UniqueObjectType
-function UniqueItemsAPI.AssignObjectName(objectID, itemName, itemType)
+---@param objectType UniqueObjectType
+function UniqueItemsAPI.AssignObjectName(objectID, itemName, objectType)
 	local funcName = "RegisterObject"
 	if objectID == nil or type(objectID) ~= "number" then
 		callArgumentNumberError(funcName, objectID, 1, "number")
@@ -262,7 +279,7 @@ function UniqueItemsAPI.AssignObjectName(objectID, itemName, itemType)
 		callArgumentNumberError(funcName, itemName, 2, "string")
 		return
 	end
-	local uniqueItemTable = itemTypeToTableName[itemType]
+	local uniqueItemTable = objectTypeToTableName[objectType]
 
 	if not UniqueItemsAPI.ObjectData[uniqueItemTable][objectID] then
 		callError("Error in" .. funcName .. ". Object is not registered. Please use UniqueItemsAPI.AssignUniqueObject.")
@@ -328,18 +345,13 @@ local function shouldDataBeAdded(funcName, params, dataType)
 	return shouldAdd
 end
 
----@return "Collectibles" | "Familiars" | "Knives"
-local function getUniqueObjectName(itemType)
-	return itemTypeToTableName[itemType]
-end
-
 ---@param objectID integer
----@param itemType UniqueObjectType
+---@param objectType UniqueObjectType
 ---@param playerType? PlayerType
 ---@return UniqueObjectPlayerData?
----@overload fun(objectID: integer, itemType: UniqueObjectType): UniqueObjectData
-function UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
-	local uniqueItemTable = getUniqueObjectName(itemType)
+---@overload fun(objectID: integer, objectType: UniqueObjectType): UniqueObjectData
+function UniqueItemsAPI.GetObjectData(objectID, objectType, playerType)
+	local uniqueItemTable = getUniqueObjectName(objectType)
 	local objectData = UniqueItemsAPI.ObjectData[uniqueItemTable][objectID]
 	if not objectData then return end
 	if playerType then
@@ -350,12 +362,12 @@ function UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
 end
 
 ---@param params UniqueObjectParams
----@param itemType UniqueObjectType
-function UniqueItemsAPI.AssignUniqueObject(params, itemType)
+---@param objectType UniqueObjectType
+function UniqueItemsAPI.AssignUniqueObject(params, objectType)
 	local funcName = "AssignUniqueObject"
-	if not shouldDataBeAdded(funcName, params, itemType) then return end
+	if not shouldDataBeAdded(funcName, params, objectType) then return end
 
-	local uniqueItemTable = getUniqueObjectName(itemType)
+	local uniqueItemTable = getUniqueObjectName(objectType)
 	if not UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID] then
 		local objectData = {}
 		objectData.SelectedModIndex = 1
@@ -391,7 +403,7 @@ function UniqueItemsAPI.AssignUniqueObject(params, itemType)
 		local playerName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].Name
 		UniqueItemsAPI.CharacterLookupTable[charType][playerName] = playerData
 	end
-	local playerData = UniqueItemsAPI.GetObjectData(params.ObjectID, itemType, params.PlayerType)
+	local playerData = UniqueItemsAPI.GetObjectData(params.ObjectID, objectType, params.PlayerType)
 	---@cast playerData UniqueObjectPlayerData
 	local modStats = {
 		ModName = lastRegisteredMod,
@@ -426,10 +438,10 @@ end
 ---@param modifierName string
 ---@param funcCondition function
 ---@param funcCallback function
----@param itemType UniqueObjectType
-function UniqueItemsAPI.AssignObjectModifier(modifierName, funcCondition, funcCallback, itemType)
+---@param objectType UniqueObjectType
+function UniqueItemsAPI.AssignObjectModifier(modifierName, funcCondition, funcCallback, objectType)
 	local funcName = "AddUniqueObjectModifier"
-	local objectName = getUniqueObjectName(itemType)
+	local objectName = getUniqueObjectName(objectType)
 
 	if shouldModifierBeAdded(funcName, modifierName, funcCondition, funcCallback, UniqueItemsAPI.ObjectModifiers[objectName]) then
 		table.insert(UniqueItemsAPI.ObjectModifiers[objectName],
@@ -438,9 +450,9 @@ function UniqueItemsAPI.AssignObjectModifier(modifierName, funcCondition, funcCa
 end
 
 ---@param modifierName string
----@param itemType UniqueObjectType
-function UniqueItemsAPI.RemoveObjectModifier(modifierName, itemType)
-	local objectName = getUniqueObjectName(itemType)
+---@param objectType UniqueObjectType
+function UniqueItemsAPI.RemoveObjectModifier(modifierName, objectType)
+	local objectName = getUniqueObjectName(objectType)
 	local objectTable = UniqueItemsAPI.ObjectModifiers[objectName]
 
 	for i, v in ipairs(objectTable) do
@@ -452,9 +464,9 @@ function UniqueItemsAPI.RemoveObjectModifier(modifierName, itemType)
 end
 
 ---@param params UniqueObjectParams
----@param itemType UniqueObjectType
-local function patchObjectDataWithModifiers(params, itemType)
-	local objectName = getUniqueObjectName(itemType)
+---@param objectType UniqueObjectType
+local function patchObjectDataWithModifiers(params, objectType)
+	local objectName = getUniqueObjectName(objectType)
 	for _, funcs in ipairs(UniqueItemsAPI.ObjectModifiers[objectName]) do
 		if funcs.Condition(params) == true then
 			params = funcs.Callback(params) or params
@@ -466,9 +478,9 @@ end
 ---@param objectID integer
 ---@param entityOrPlayerType Entity | PlayerType
 ---@param noModifier? boolean
----@param itemType UniqueObjectType
+---@param objectType UniqueObjectType
 ---@return UniqueObjectParams | nil
-function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, noModifier, itemType)
+function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, noModifier, objectType)
 	local playerType = entityOrPlayerType
 	local player
 	if type(entityOrPlayerType) ~= "number" then
@@ -478,7 +490,7 @@ function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, noModifier
 		playerType = player:GetPlayerType()
 	end
 	---@cast playerType PlayerType
-	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
+	local playerData = UniqueItemsAPI.GetObjectData(objectID, objectType, playerType)
 	if not playerData then return end
 	local params = {}
 	local modData = playerData.ModData[playerData.SelectedModIndex]
@@ -499,20 +511,20 @@ function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, noModifier
 
 	params.PlayerType = playerType
 	params.ItemID = objectID
-	params.ItemType = itemType
+	params.ItemType = objectType
 
 	if noModifier then return params end
 
-	params = patchObjectDataWithModifiers(params, itemType)
+	params = patchObjectDataWithModifiers(params, objectType)
 
 	return params
 end
 
 ---@param objectID integer
 ---@param playerType PlayerType
----@param itemType UniqueObjectType
-function UniqueItemsAPI.GetCurrentObjectMod(objectID, playerType, itemType)
-	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
+---@param objectType UniqueObjectType
+function UniqueItemsAPI.GetCurrentObjectMod(objectID, playerType, objectType)
+	local playerData = UniqueItemsAPI.GetObjectData(objectID, objectType, playerType)
 	if not playerData then return end
 	return playerData.ModData[playerData.SelectedModIndex]
 end
@@ -520,10 +532,10 @@ end
 ---@param objectID integer
 ---@param playerType PlayerType
 ---@param bool boolean
----@param itemType UniqueObjectType
-function UniqueItemsAPI.SetCharacterObjectAvailability(objectID, playerType, bool, itemType)
+---@param objectType UniqueObjectType
+function UniqueItemsAPI.SetIsCharacterObjectEnabled(objectID, playerType, bool, objectType)
 	if not bool or type(bool) ~= "boolean" then return end
-	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
+	local playerData = UniqueItemsAPI.GetObjectData(objectID, objectType, playerType)
 	if not playerData then return end
 	playerData.TempDisable = not bool
 end
@@ -539,8 +551,7 @@ function UniqueItemsAPI.IsObjectRandomized(playerData)
 end
 
 --#endregion
-
---#region deprecated
+--#region Deprecated
 
 ---@deprecated
 ---@param id integer
@@ -569,19 +580,20 @@ end
 ---@deprecated
 ---@param itemID integer
 function UniqueItemsAPI.IsItemRegistered(itemID)
-	--return UniqueItemsAPI.IsObjectRegistered(itemID, UniqueItemsAPI.ObjectType.FAMILIAR)
+	return UniqueItemsAPI.IsObjectIDRegistered(itemID, UniqueItemsAPI.ObjectType.ITEM)
 end
 
 ---@deprecated
 ---@param familiarVariant FamiliarVariant
 function UniqueItemsAPI.IsFamiliarRegistered(familiarVariant)
-	--return UniqueItemsAPI.IsObjectRegistered(familiarVariant, UniqueItemsAPI.ObjectType.FAMILIAR)
+	return  UniqueItemsAPI.IsObjectIDRegistered(familiarVariant, UniqueItemsAPI.ObjectType.FAMILIAR)
+
 end
 
 ---@deprecated
 ---@param knifeVariant KnifeVariant
 function UniqueItemsAPI.IsKnifeRegistered(knifeVariant)
-	--return UniqueItemsAPI.IsObjectRegistered(knifeVariant, UniqueItemsAPI.ObjectType.KNIFE)
+	return  UniqueItemsAPI.IsObjectIDRegistered(knifeVariant, UniqueItemsAPI.ObjectType.KNIFE)
 end
 
 ---@param spritePath string[] | string
@@ -757,7 +769,7 @@ end
 ---@param playerType PlayerType
 ---@param bool boolean
 function UniqueItemsAPI.ToggleCharacterItem(itemID, playerType, bool)
-	UniqueItemsAPI.SetCharacterObjectAvailability(itemID, playerType, bool, UniqueItemsAPI.ObjectType.ITEM)
+	UniqueItemsAPI.SetIsCharacterObjectEnabled(itemID, playerType, bool, UniqueItemsAPI.ObjectType.ITEM)
 end
 
 ---@deprecated
@@ -765,7 +777,7 @@ end
 ---@param playerType PlayerType
 ---@param bool boolean
 function UniqueItemsAPI.ToggleCharacterFamiliar(familiarVariant, playerType, bool)
-	UniqueItemsAPI.SetCharacterObjectAvailability(familiarVariant, playerType, bool, UniqueItemsAPI.ObjectType.FAMILIAR)
+	UniqueItemsAPI.SetIsCharacterObjectEnabled(familiarVariant, playerType, bool, UniqueItemsAPI.ObjectType.FAMILIAR)
 end
 
 ---@deprecated
@@ -773,7 +785,7 @@ end
 ---@param playerType PlayerType
 ---@param bool boolean
 function UniqueItemsAPI.ToggleCharacterKnife(knifeVariant, playerType, bool)
-	UniqueItemsAPI.SetCharacterObjectAvailability(knifeVariant, playerType, bool, UniqueItemsAPI.ObjectType.FAMILIAR)
+	UniqueItemsAPI.SetIsCharacterObjectEnabled(knifeVariant, playerType, bool, UniqueItemsAPI.ObjectType.FAMILIAR)
 end
 
 --#endregion

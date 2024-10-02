@@ -16,8 +16,8 @@ function UniqueItemsAPI:OnObjectInit(ent)
 	if not player then return end
 	local playerType = player:GetPlayerType()
 	local objectID = ent.Type == EntityType.ENTITY_PICKUP and ent.SubType or ent.Variant
-	local itemType = entTypeToItemType[ent.Type]
-	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
+	local objectType = entTypeToItemType[ent.Type]
+	local playerData = UniqueItemsAPI.GetObjectData(objectID, objectType, playerType)
 	if not playerData or UniqueItemsAPI.IsObjectDisabled(playerData) then return end
 	local data = player:GetData()
 	if UniqueItemsAPI.IsObjectRandomized(playerData) then
@@ -25,7 +25,7 @@ function UniqueItemsAPI:OnObjectInit(ent)
 		rng:SetSeed(ent.InitSeed, 35)
 		data.UniqueItemsRandomIndex = rng:RandomInt(#playerData.ModData) + 1
 	end
-	local params = UniqueItemsAPI.GetObjectParams(objectID, player, false, itemType)
+	local params = UniqueItemsAPI.GetObjectParams(objectID, player, false, objectType)
 	if not params then return end
 	local sprite = ent:GetSprite()
 	local originalAnm2 = sprite:GetFilename()
@@ -94,13 +94,13 @@ function UniqueItemsAPI:UpdateObjectSprite(ent)
 	local playerType = player:GetPlayerType()
 	local data = ent:GetData()
 	local objectID = ent.Type == EntityType.ENTITY_PICKUP and ent.SubType or ent.Variant
-	local itemType = entTypeToItemType[ent.Type]
-	local playerData = UniqueItemsAPI.GetObjectData(objectID, itemType, playerType)
+	local objectType = entTypeToItemType[ent.Type]
+	local playerData = UniqueItemsAPI.GetObjectData(objectID, objectType, playerType)
 	if not playerData or UniqueItemsAPI.IsObjectDisabled(playerData) then
 		tryResetObjectSprite(ent)
 		return
 	end
-	local params = UniqueItemsAPI.GetObjectParams(objectID, player, false, itemType)
+	local params = UniqueItemsAPI.GetObjectParams(objectID, player, false, objectType)
 	if not params then
 		tryResetObjectSprite(ent)
 		return
