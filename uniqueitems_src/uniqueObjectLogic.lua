@@ -151,20 +151,17 @@ function UniqueItemsAPI:ReplaceItemCostume(player)
 				and data.UniqueCostumeSprites[itemID].PlayerType == playerType
 			)
 		then
-			print("womp womp 1")
 			goto continue
 		end
 
 		local playerData = UniqueItemsAPI.GetObjectData(itemID, UniqueItemsAPI.ObjectType.ITEM, playerType)
 		if not playerData or UniqueItemsAPI.IsObjectDisabled(playerData) then
-			print("womp womp 2")
 			tryResetCostume(player, itemID)
 			goto continue
 		end
 		local params = UniqueItemsAPI.GetObjectParams(itemID, player, false, UniqueItemsAPI.ObjectType.ITEM)
 		if not params then
 			tryResetCostume(player, itemID)
-			print("womp womp 3")
 			goto continue
 		end
 

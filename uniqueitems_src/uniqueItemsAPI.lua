@@ -365,7 +365,6 @@ function UniqueItemsAPI.AssignUniqueObject(params, itemType)
 		string.gsub(uniqueItemTable, 1, -2) .. " ID " .. objectData.Name or objectData.Name
 		UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID] = objectData
 		UniqueItemsAPI.ObjectLookupTable[objectData.Name] = objectData
-		print(uniqueItemTable, params.ObjectID, objectData.Name)
 	end
 
 	---@type UniqueObjectData
