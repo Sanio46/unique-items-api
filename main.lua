@@ -123,7 +123,7 @@ end
 
 function UniqueItemsAPI:OnPreDataLoad(saveData)
 	if saveData.uniqueItems or saveData.uniqueFamiliars or saveData.uniqueKnives then
-		return {} --Completely wipe pre-existing save data
+		return UniqueItemsAPI.SaveManager.Utility.PatchSaveFile({}, UniqueItemsAPI.SaveManager.DEFAULT_SAVE) --Completely wipe pre-existing save data
 	end
 end
 
