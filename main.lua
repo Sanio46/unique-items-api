@@ -57,8 +57,7 @@ function UniqueItemsAPI:OnPreDataSave(saveData)
 			for playerType, playerData in pairs(objectData.AllPlayers) do
 				local playerSaveIndex = getPlayerSaveIndex(UniqueItemsAPI.RegisteredCharacters[playerType])
 				curMod = playerData.SelectedModIndex
-				state = curMod == -1 and "Randomized" or curMod == 0 and "Disabled" or playerData.ModData[curMod]
-					.ModName
+				state = curMod == -1 and "Randomized" or curMod == 0 and "Disabled" or playerData.ModData[curMod].ModName
 				objectSave.PlayerData[playerSaveIndex] = state
 			end
 			local objectSaveIndex = getObjectSaveIndex(tableName, objectData.Name)

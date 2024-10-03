@@ -1,7 +1,7 @@
 --#region replace sprite of collectibles, familiars, knives
 
 local entTypeToItemType = {
-	[EntityType.ENTITY_PICKUP] = UniqueItemsAPI.ObjectType.ITEM,
+	[EntityType.ENTITY_PICKUP] = UniqueItemsAPI.ObjectType.COLLECTIBLE,
 	[EntityType.ENTITY_FAMILIAR] = UniqueItemsAPI.ObjectType.FAMILIAR,
 	[EntityType.ENTITY_KNIFE] = UniqueItemsAPI.ObjectType.KNIFE
 }
@@ -25,7 +25,7 @@ function UniqueItemsAPI:OnObjectInit(ent)
 		rng:SetSeed(ent.InitSeed, 35)
 		data.UniqueItemsRandomIndex = rng:RandomInt(#playerData.ModData) + 1
 	end
-	local params = UniqueItemsAPI.GetObjectParams(objectID, player, false, objectType)
+	local params = UniqueItemsAPI.GetObjectParams(objectID, player, objectType)
 	if not params then return end
 	local sprite = ent:GetSprite()
 	local originalAnm2 = sprite:GetFilename()
@@ -100,7 +100,7 @@ function UniqueItemsAPI:UpdateObjectSprite(ent)
 		tryResetObjectSprite(ent)
 		return
 	end
-	local params = UniqueItemsAPI.GetObjectParams(objectID, player, false, objectType)
+	local params = UniqueItemsAPI.GetObjectParams(objectID, player, objectType)
 	if not params then
 		tryResetObjectSprite(ent)
 		return
@@ -109,10 +109,12 @@ function UniqueItemsAPI:UpdateObjectSprite(ent)
 	if data.UniqueItemsAPISprite
 		and data.UniqueItemsAPISprite.PlayerType == playerType
 		and data.UniqueItemsAPISprite.SelectedModIndex == playerData.SelectedModIndex
+		and UniqueItemsAPI.Game:GetFrameCount() % 30 ~= 0
 	then
 		return
 	end
 
+	tryResetObjectSprite(ent)
 	UniqueItemsAPI:OnObjectInit(ent)
 end
 
@@ -120,7 +122,6 @@ UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, UniqueItemsAPI.Up
 	PickupVariant.PICKUP_COLLECTIBLE)
 UniqueItemsAPI:AddCallback(ModCallbacks.MC_FAMILIAR_UPDATE, UniqueItemsAPI.UpdateObjectSprite)
 UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_KNIFE_UPDATE, UniqueItemsAPI.UpdateObjectSprite)
-
 --#endregion
 
 --#region costumes
@@ -154,12 +155,12 @@ function UniqueItemsAPI:ReplaceItemCostume(player)
 			goto continue
 		end
 
-		local playerData = UniqueItemsAPI.GetObjectData(itemID, UniqueItemsAPI.ObjectType.ITEM, playerType)
+		local playerData = UniqueItemsAPI.GetObjectData(itemID, UniqueItemsAPI.ObjectType.COLLECTIBLE, playerType)
 		if not playerData or UniqueItemsAPI.IsObjectDisabled(playerData) then
 			tryResetCostume(player, itemID)
 			goto continue
 		end
-		local params = UniqueItemsAPI.GetObjectParams(itemID, player, false, UniqueItemsAPI.ObjectType.ITEM)
+		local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE)
 		if not params then
 			tryResetCostume(player, itemID)
 			goto continue
@@ -210,9 +211,9 @@ function UniqueItemsAPI:ReplaceCollectibleOnItemQueue(player)
 				goto continue
 			end
 			local playerType = player:GetPlayerType()
-			local playerData = UniqueItemsAPI.GetObjectData(itemID, UniqueItemsAPI.ObjectType.ITEM, playerType)
+			local playerData = UniqueItemsAPI.GetObjectData(itemID, UniqueItemsAPI.ObjectType.COLLECTIBLE, playerType)
 			if not playerData then goto continue end
-			local params = UniqueItemsAPI.GetObjectParams(itemID, player, false, UniqueItemsAPI.ObjectType.ITEM)
+			local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE)
 			if params == nil then goto continue end
 			local sprite = Sprite()
 
@@ -255,7 +256,7 @@ function UniqueItemsAPI:ReplaceSpiritSwordProjectileOnInit(tear)
 	local playerType = player:GetPlayerType()
 	local playerData = UniqueItemsAPI.GetObjectData(knifeVariant, UniqueItemsAPI.ObjectType.KNIFE, playerType)
 	if not playerData then return end
-	local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, false, UniqueItemsAPI.ObjectType.KNIFE)
+	local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, UniqueItemsAPI.ObjectType.KNIFE)
 	if not params then return end
 
 	---@type Sprite
@@ -266,16 +267,6 @@ function UniqueItemsAPI:ReplaceSpiritSwordProjectileOnInit(tear)
 			sprite:Play(sprite:GetDefaultAnimation(), true)
 		elseif string.find(params.SwordProjectile.Beam, ".png") then
 			sprite:ReplaceSpritesheet(0, params.SwordProjectile.Beam)
-			sprite:LoadGraphics()
-		end
-	elseif type(params.SpritePath) == "table" then
-		local validLayer
-		for _, spritePath in pairs(params.SpritePath) do
-			validLayer = spritePath
-			break
-		end
-		if validLayer ~= nil then
-			sprite:ReplaceSpritesheet(0, validLayer)
 			sprite:LoadGraphics()
 		end
 	end
@@ -301,8 +292,7 @@ function UniqueItemsAPI:ReplaceSwordSplashOnTearDeath(tear)
 		local playerType = player:GetPlayerType()
 		local playerData = UniqueItemsAPI.GetObjectData(knifeVariant, UniqueItemsAPI.ObjectType.KNIFE, playerType)
 		if not playerData then return end
-		local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, false,
-			UniqueItemsAPI.ObjectType.KNIFE)
+		local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, UniqueItemsAPI.ObjectType.KNIFE)
 		if not params then return end
 		local sprite = effect:GetSprite()
 
@@ -313,12 +303,6 @@ function UniqueItemsAPI:ReplaceSwordSplashOnTearDeath(tear)
 			elseif string.sub(params.SwordProjectile.Splash, -4, -1) == ".png" then
 				sprite:ReplaceSpritesheet(0, params.SwordProjectile.Splash)
 				sprite:LoadGraphics()
-			end
-		elseif type(params.SpritePath) == "table" then
-			for layerID, spritePath in pairs(params.SpritePath) do
-				sprite:ReplaceSpritesheet(layerID, spritePath)
-				sprite:LoadGraphics()
-				break
 			end
 		end
 	end
