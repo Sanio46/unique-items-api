@@ -61,7 +61,9 @@ function mcm:GenerateModConfigMenu(noItems)
 		"Randomizes settings on what mod is used for every character with every item, if more than one mod is available for that character."
 	})
 
-	for tableName, objectTable in pairs(UniqueItemsAPI.ObjectData) do
+	for i = 1, 3 do
+		local tableName = i == 1 and "Collectibles" or i == 2 and "Familiars" or "Knives"
+		local objectTable = UniqueItemsAPI.ObjectData[tableName]
 		local subcategoryName = tableName
 		ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
 			Name = subcategoryName,
@@ -71,7 +73,6 @@ function mcm:GenerateModConfigMenu(noItems)
 		---@param ID integer
 		---@param objectData UniqueObjectData
 		for ID, objectData in pairs(objectTable) do
-
 			--AFFECT ALL
 			ModConfigMenu.AddTitle(modName, subcategoryName, objectData.DisplayName)
 			ModConfigMenu.AddSetting(modName, subcategoryName, {
@@ -127,7 +128,7 @@ function mcm:GenerateModConfigMenu(noItems)
 				Maximum = #playerNames,
 				ModifyBy = 1,
 				Display = function()
-					return "Character: " .. UniqueItemsAPI.RegisteredCharacters[objectData.SelectedPlayerIndex - 1].Name .. " (" .. objectData.SelectedPlayerIndex .. "/" .. #playerNames .. ")"
+					return "Character: " .. UniqueItemsAPI.RegisteredCharacters[objectData.SelectedPlayerIndex - 1].DisplayName .. " (" .. objectData.SelectedPlayerIndex .. "/" .. #playerNames .. ")"
 				end,
 				OnChange = function(currentNum)
 					objectData.SelectedPlayerIndex = currentNum
@@ -156,7 +157,7 @@ function mcm:GenerateModConfigMenu(noItems)
 						local settingName = #playerData.ModData > 1 and playerData.ModData[selectedModIndex].ModName or "Enabled"
 						display = settingName
 					end
-					
+
 					return "Setting: " .. display
 				end,
 				OnChange = function(currentNum)

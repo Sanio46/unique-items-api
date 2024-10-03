@@ -49,20 +49,18 @@ local lastRegisteredMod = ""
 UniqueItemsAPI.RandomizeAll = false
 UniqueItemsAPI.DisableAll = false
 UniqueItemsAPI.RegisteredMods = {}
----@type {Name: string, IsTainted: boolean}[]
+---@type {Name: string, DisplayName: string, IsTainted: boolean}[]
 UniqueItemsAPI.RegisteredCharacters = {}
 
----@type {Collectibles: UniqueObjectData[], Familiars: UniqueObjectData[], Knives: UniqueObjectData[]}
+---@class ObjectLookupTable
+---@field ObjectData UniqueObjectData
+---@field CharacterLookupTable {Normal: UniqueObjectPlayerData[], Tainted: UniqueObjectPlayerData[]}
+
+---@type {Collectibles: ObjectLookupTable[], Familiars: ObjectLookupTable[], Knives: ObjectLookupTable[]}
 UniqueItemsAPI.ObjectLookupTable = {
 	Collectibles = {},
 	Familiars = {},
 	Knives = {}
-}
-
----@type {Normal: UniqueObjectPlayerData[], Tainted: UniqueObjectPlayerData[]}
-UniqueItemsAPI.CharacterLookupTable = {
-	Normal = {},
-	Tainted = {}
 }
 
 ---@type {Collectibles: UniqueObjectData[], Familiars: UniqueObjectData[], Knives: UniqueObjectData[]}
@@ -71,30 +69,70 @@ UniqueItemsAPI.ObjectData = {
 	Familiars = {},
 	Knives = {}
 }
+
 UniqueItemsAPI.ObjectModifiers = {
 	Collectibles = {},
 	Familiars = {},
 	Knives = {}
 }
+
 ---@enum UniqueObjectType
 UniqueItemsAPI.ObjectType = {
 	ITEM = 1,
 	FAMILIAR = 2,
 	KNIFE = 3
 }
+
 local objectTypeToTableName = {
 	[UniqueItemsAPI.ObjectType.ITEM] = "Collectibles",
 	[UniqueItemsAPI.ObjectType.FAMILIAR] = "Familiars",
 	[UniqueItemsAPI.ObjectType.KNIFE] = "Knives",
 }
 
-for playerType = 0, PlayerType.NUM_PLAYER_TYPES - 1 do
-	local isTainted = playerType >= PlayerType.PLAYER_ISAAC_B
-	UniqueItemsAPI.RegisteredCharacters[playerType] = {
-		Name = isTainted and "Tainted " .. nameMap.TaintedCharacters[playerType] or nameMap.NormalCharacters[playerType],
-		IsTainted = isTainted
+UniqueItemsAPI.Callbacks = {
+	LOAD_UNIQUE_ITEMS = "__UNIQUE_ITEMS_API_LOAD_UNIQUE_ITEMS"
+}
+
+UniqueItemsAPI.SaveManager.AddCallback(UniqueItemsAPI.SaveManager.Utility.CustomCallback.POST_DATA_LOAD, function()
+	UniqueItemsAPI.ObjectData = {
+		Collectibles = {},
+		Familiars = {},
+		Knives = {}
 	}
-end
+
+	UniqueItemsAPI.ObjectModifiers = {
+		Collectibles = {},
+		Familiars = {},
+		Knives = {}
+	}
+
+	UniqueItemsAPI.RegisteredMods = {}
+
+	UniqueItemsAPI.RegisteredCharacters = {}
+
+	local normalDisplayNames = {
+		[PlayerType.PLAYER_BLUEBABY] = "Blue Baby",
+		[PlayerType.PLAYER_LAZARUS2] = "Lazarus (Risen)",
+		[PlayerType.PLAYER_BLACKJUDAS] = "Dark Judas",
+	}
+
+	local taintedDisplayNames = {
+		[PlayerType.PLAYER_BLUEBABY_B] = "Blue Baby",
+		[PlayerType.PLAYER_LAZARUS2_B] = "Lazarus (Dead)",
+		[PlayerType.PLAYER_JACOB2_B] = "Jacob (Ghost)",
+	}
+
+	for playerType = 0, PlayerType.NUM_PLAYER_TYPES - 1 do
+		local isTainted = playerType >= PlayerType.PLAYER_ISAAC_B
+		local name = isTainted and "Tainted " .. nameMap.TaintedCharacters[playerType] or nameMap.NormalCharacters[playerType]
+		local displayName = isTainted and taintedDisplayNames[playerType] and "Tainted " .. taintedDisplayNames[playerType] or normalDisplayNames[playerType] or name
+		UniqueItemsAPI.RegisteredCharacters[playerType] = {
+			Name = name,
+			DisplayName = displayName,
+			IsTainted = isTainted
+		}
+	end
+end)
 
 --#endregion
 --#region Helper functions
@@ -261,8 +299,9 @@ function UniqueItemsAPI.RegisterCharacter(name, isTainted, displayName)
 	end
 	displayName = displayName or name
 	UniqueItemsAPI.RegisteredCharacters[playerType] = {
-		Name = displayName or name,
-		IsTainted = isTainted
+		Name = name,
+		IsTainted = isTainted,
+		DisplayName = displayName or name
 	}
 end
 
@@ -378,9 +417,11 @@ function UniqueItemsAPI.AssignUniqueObject(params, objectType)
 		objectData.DisplayName = tonumber(objectData.Name) and
 		string.gsub(uniqueItemTable, 1, -2) .. " ID " .. objectData.Name or objectData.Name
 		UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID] = objectData
-		UniqueItemsAPI.ObjectLookupTable[objectData.Name] = objectData
+		UniqueItemsAPI.ObjectLookupTable[uniqueItemTable][objectData.Name] = {
+			ObjectData = objectData
+		}
 	end
-
+	
 	---@type UniqueObjectData
 	local objectData = UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID]
 	local shouldAdd = true
@@ -401,7 +442,14 @@ function UniqueItemsAPI.AssignUniqueObject(params, objectType)
 		objectData.AllPlayers[params.PlayerType] = playerData
 		local charType = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].IsTainted and "Tainted" or "Normal"
 		local playerName = UniqueItemsAPI.RegisteredCharacters[params.PlayerType].Name
-		UniqueItemsAPI.CharacterLookupTable[charType][playerName] = playerData
+		local objectLookup = UniqueItemsAPI.ObjectLookupTable[uniqueItemTable][objectData.Name]
+		if not objectLookup.CharacterLookupTable then
+			objectLookup.CharacterLookupTable = {
+				Normal = {},
+				Tainted = {}
+			}
+		end
+		objectLookup.CharacterLookupTable[charType][playerName] = playerData
 	end
 	local playerData = UniqueItemsAPI.GetObjectData(params.ObjectID, objectType, params.PlayerType)
 	---@cast playerData UniqueObjectPlayerData

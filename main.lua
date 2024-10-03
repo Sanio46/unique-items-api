@@ -2,7 +2,8 @@
 
 ---@class ModReference
 UniqueItemsAPI = RegisterMod("Unique Items API", 1)
-local saveManager = include("uniqueitems_src.save_manager")
+UniqueItemsAPI.SaveManager = include("uniqueitems_src.save_manager")
+local saveManager = UniqueItemsAPI.SaveManager
 saveManager.Init(UniqueItemsAPI)
 UniqueItemsAPI.Game = Game()
 UniqueItemsAPI.ItemConfig = Isaac.GetItemConfig()
@@ -10,9 +11,7 @@ UniqueItemsAPI.ItemConfig = Isaac.GetItemConfig()
 include("uniqueitems_src.uniqueItemsAPI")
 include("uniqueitems_src.uniqueObjectLogic")
 local mcm = include("uniqueitems_src.modConfigMenu")
---local saveData = include("uniqueitems_src.saveData")
 UniqueItemsAPI.Version = "1.2"
---saveData:initAPI(api)
 
 function UniqueItemsAPI:OnPostGameStarted()
 	local noItems = true
@@ -45,6 +44,8 @@ function UniqueItemsAPI:OnPreDataSave(saveData)
 	local arbitrarySave = saveData.file.other
 	arbitrarySave.DisableAll = UniqueItemsAPI.DisableAll
 	arbitrarySave.RandomizeAll = UniqueItemsAPI.RandomizeAll
+	arbitrarySave.AllObjectData = {}
+
 	for tableName, tableData in pairs(UniqueItemsAPI.ObjectData) do
 		for _, objectData in pairs(tableData) do
 			local curMod = objectData.SelectedModIndex
@@ -61,16 +62,17 @@ function UniqueItemsAPI:OnPreDataSave(saveData)
 				objectSave.PlayerData[playerSaveIndex] = state
 			end
 			local objectSaveIndex = getObjectSaveIndex(tableName, objectData.Name)
-			arbitrarySave[objectSaveIndex] = objectSave
+			arbitrarySave.AllObjectData[objectSaveIndex] = objectSave
 		end
 	end
+	return saveData
 end
 
---UniqueItemsAPI:AddCallback(saveManager.Utility.CustomCallback.PRE_DATA_SAVE, UniqueItemsAPI.OnPreDataSave)
+saveManager.AddCallback(saveManager.Utility.CustomCallback.PRE_DATA_SAVE, UniqueItemsAPI.OnPreDataSave)
 
 ---@param state string
 ---@return integer?
-local function getObjectState(mods,state)
+local function getObjectState(mods, state)
 	if state == "Randomized" then
 		return -1
 	elseif state == "Disabled" then
@@ -88,29 +90,59 @@ local function extractObjectIndexData(objectSaveIndex)
 	local sepStart, sepEnd = string.find(objectSaveIndex, "_")
 	local objectTypeName = string.sub(objectSaveIndex, 1, sepStart - 1)
 	local objectName = string.sub(objectSaveIndex, sepEnd + 1, -1)
+
 	return objectTypeName, objectName
 end
 
 local function extractPlayerIndexData(playerSaveIndex)
-	local sepStart, sepEnd = string.find(playerSaveIndex, "_")
-	local name = string.sub(playerSaveIndex, 1, sepStart - 1)
-	local start3 = string.find(playerSaveIndex, ".B")
-	local isTainted = start3 ~= nil
+	local name = playerSaveIndex
+	local start2 = string.sub(playerSaveIndex, -2, -1)
+	local isTainted = start2 == ".B"
 	if isTainted then
 		name = string.sub(name, 1, -3)
 	end
+
 	return name, isTainted
 end
 
+---@param state string
+---@return integer?
+local function getPlayerModsObjectState(mods, state)
+	if state == "Randomized" then
+		return -1
+	elseif state == "Disabled" then
+		return 0
+	else
+		for index, modData in ipairs(mods) do
+			if modData.ModName == state then
+				return index
+			end
+		end
+	end
+end
+
+function UniqueItemsAPI:OnPreDataLoad(saveData)
+	if saveData.uniqueItems or saveData.uniqueFamiliars or saveData.uniqueKnives then
+		return {} --Completely wipe pre-existing save data
+	end
+end
+
+saveManager.AddCallback(saveManager.Utility.CustomCallback.PRE_DATA_LOAD, UniqueItemsAPI.OnPreDataLoad)
+
 function UniqueItemsAPI:OnPostDataLoad(saveData)
 	local arbitrarySave = saveData.file.other
+
+	Isaac.RunCallback(UniqueItemsAPI.Callbacks.LOAD_UNIQUE_ITEMS)
+
 	UniqueItemsAPI.DisableAll = arbitrarySave.DisableAll
 	UniqueItemsAPI.RandomizeAll = arbitrarySave.RandomizeAll
-	for objectSaveIndex, objectSave in pairs(arbitrarySave) do
+	
+	for objectSaveIndex, objectSave in pairs(arbitrarySave.AllObjectData) do
 		local objectTypeName, objectName = extractObjectIndexData(objectSaveIndex)
 		if not UniqueItemsAPI.ObjectData[objectTypeName] then goto continue end
-		local objectData = UniqueItemsAPI.ObjectLookupTable[objectTypeName][objectName]
-		if not objectData then goto continue end
+		local objectLookup = UniqueItemsAPI.ObjectLookupTable[objectTypeName][objectName]
+		if not objectLookup or not objectLookup.ObjectData then goto continue end
+		local objectData = objectLookup.ObjectData
 		if objectData.Name == objectName then
 			local objectState = getObjectState(objectData.AllMods, objectSave.State)
 			if not objectState then
@@ -119,9 +151,9 @@ function UniqueItemsAPI:OnPostDataLoad(saveData)
 			objectData.SelectedModIndex = objectState
 			for playerSaveIndex, playerSaveState in pairs(objectSave.PlayerData) do
 				local name, isTainted = extractPlayerIndexData(playerSaveIndex)
-				local playerData = UniqueItemsAPI.CharacterLookupTable[isTainted and "Tainted" or "Normal"][name]
+				local playerData = objectLookup.CharacterLookupTable[isTainted and "Tainted" or "Normal"][name]
 				if not playerData then goto continue end
-				local playerState = getObjectState(playerData.ModData, playerSaveState)
+				local playerState = getPlayerModsObjectState(playerData.ModData, playerSaveState)
 				if not playerState then
 					playerState = 1
 				end
@@ -133,4 +165,4 @@ function UniqueItemsAPI:OnPostDataLoad(saveData)
 	end
 end
 
---UniqueItemsAPI:AddCallback(saveManager.Utility.CustomCallback.POST_DATA_LOAD, UniqueItemsAPI.OnPostDataLoad)
+saveManager.AddCallback(saveManager.Utility.CustomCallback.POST_DATA_LOAD, UniqueItemsAPI.OnPostDataLoad)
