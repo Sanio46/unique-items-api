@@ -25,9 +25,11 @@ local nameMap = require("uniqueitems_src.nameMap")
 ---@field CostumeSpritePath string | nil
 ---@field NullCostume NullItemID | nil
 ---@field SwordProjectile {Beam: string, Splash: string} | nil
+---@field GlobalMod boolean
 
 ---@class UniqueObjectParams: UniqueObjectModData
 ---@field Player EntityPlayer?
+---@field ObjectEntity Entity
 
 ---@class OldObjectParams: UniqueObjectParams
 ---@field ItemSprite string | string[]
@@ -227,6 +229,25 @@ local function getUniqueObjectName(objectType)
 	return objectTypeToTableName[objectType]
 end
 
+---Takes a table to fully copy as its own new table, which is then returned.
+---Credit to catinsurance
+---@generic dataTable
+---@param tab dataTable
+---@return dataTable
+function UniqueItemsAPI.DeepCopy(tab)
+	if type(tab) ~= "table" then
+		return tab
+	end
+
+	local final = setmetatable({}, getmetatable(tab))
+	for i, v in pairs(tab) do
+		final[UniqueItemsAPI.DeepCopy(i)] = UniqueItemsAPI.DeepCopy(v)
+	end
+
+	return final
+end
+
+
 --#endregion
 --#region API
 
@@ -277,6 +298,7 @@ function UniqueItemsAPI.RegisterMod(modName)
 		callArgumentNumberError(funcName, modName, 1, "string")
 		return
 	end
+
 	table.insert(UniqueItemsAPI.RegisteredMods, modName)
 end
 
@@ -334,7 +356,9 @@ end
 ---@param params UniqueObjectModData
 ---@param dataType UniqueObjectType
 local function shouldDataBeAdded(funcName, params, dataType)
-	if params.PlayerType == nil
+	if params.GlobalMod then
+		--Is good :)
+	elseif params.PlayerType == nil
 		or type(params.PlayerType) ~= "number"
 	then
 		callArgumentError(funcName, params.PlayerType, "PlayerType", "number", true)
@@ -353,11 +377,10 @@ local function shouldDataBeAdded(funcName, params, dataType)
 	then
 		callArgumentError(funcName, params.ObjectID, "ID", "number", true)
 	end
-	if (params.SpritePath == nil and params.Anm2 == nil)
-		or (params.SpritePath ~= nil and type(params.SpritePath) ~= "table"
-			or params.Anm2 ~= nil and type(params.Anm2) ~= "string")
-	then
+	if params.SpritePath ~= nil and type(params.SpritePath) ~= "table" then
 		callArgumentError(funcName, params.SpritePath, "SpritePath", "table", true)
+	elseif  params.Anm2 ~= nil and type(params.Anm2) ~= "string" then
+		callArgumentError(funcName, params.Anm2, "Anm2", "string", true)
 	end
 
 	if dataType == nil
@@ -434,7 +457,15 @@ function UniqueItemsAPI.AssignUniqueObject(params, objectType)
 			ObjectData = objectData
 		}
 	end
-
+	
+	if not params.PlayerType and params.GlobalMod then
+		for playerType, _ in pairs(UniqueItemsAPI.RegisteredCharacters) do
+			params.PlayerType = playerType
+			UniqueItemsAPI.AssignUniqueObject(params, objectType)
+		end
+		return
+	end
+	
 	---@type UniqueObjectData
 	local objectData = UniqueItemsAPI.ObjectData[uniqueItemTable][params.ObjectID]
 	local shouldAdd = true
@@ -444,8 +475,9 @@ function UniqueItemsAPI.AssignUniqueObject(params, objectType)
 			break
 		end
 	end
-	if not shouldAdd then return end
-	table.insert(objectData.AllMods, lastRegisteredMod)
+	if shouldAdd then
+		table.insert(objectData.AllMods, lastRegisteredMod)
+	end
 
 	if not objectData.AllPlayers[params.PlayerType] then
 		local playerData = {}
@@ -539,16 +571,17 @@ local function patchObjectDataWithModifiers(params, objectType)
 end
 
 ---@param objectID integer
----@param entityOrPlayerType Entity | PlayerType
+---@param playerOrPlayerType Entity | PlayerType
 ---@param objectType UniqueObjectType
 ---@param noModifier? boolean
+---@param objectEntity? Entity
 ---@return UniqueObjectParams | nil
-function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, objectType, noModifier)
-	local playerType = entityOrPlayerType
+function UniqueItemsAPI.GetObjectParams(objectID, playerOrPlayerType, objectType, noModifier, objectEntity)
+	local playerType = playerOrPlayerType
 	local player
-	if type(entityOrPlayerType) ~= "number" then
-		---@cast entityOrPlayerType Entity
-		player = UniqueItemsAPI.TryGetPlayer(entityOrPlayerType)
+	if type(playerOrPlayerType) ~= "number" then
+		---@cast playerOrPlayerType Entity
+		player = UniqueItemsAPI.TryGetPlayer(playerOrPlayerType)
 		if not player then return end
 		playerType = player:GetPlayerType()
 	end
@@ -558,10 +591,8 @@ function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, objectType
 	local params = {}
 	local modData = playerData.ModData[playerData.SelectedModIndex]
 
-	if UniqueItemsAPI.IsObjectRandomized(playerData) and type(entityOrPlayerType) ~= "number" then
-		local ent = entityOrPlayerType
-		---@cast ent Entity
-		modData = playerData.ModData[ent:GetData().UniqueItemsRandomIndex]
+	if UniqueItemsAPI.IsObjectRandomized(playerData) and player then
+		modData = playerData.ModData[player:GetData().UniqueItemsRandomIndex]
 	end
 
 	for varName, value in pairs(modData) do
@@ -570,6 +601,9 @@ function UniqueItemsAPI.GetObjectParams(objectID, entityOrPlayerType, objectType
 
 	if player then
 		params.Player = player
+	end
+	if objectEntity then
+		params.ObjectEntity = objectEntity
 	end
 
 	if noModifier then return params end

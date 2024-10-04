@@ -25,7 +25,7 @@ function UniqueItemsAPI:OnObjectInit(ent)
 		rng:SetSeed(ent.InitSeed, 35)
 		data.UniqueItemsRandomIndex = rng:RandomInt(#playerData.ModData) + 1
 	end
-	local params = UniqueItemsAPI.GetObjectParams(objectID, player, objectType)
+	local params = UniqueItemsAPI.GetObjectParams(objectID, player, objectType, false, ent)
 	if not params then return end
 	local sprite = ent:GetSprite()
 	local originalAnm2 = sprite:GetFilename()
@@ -100,7 +100,7 @@ function UniqueItemsAPI:UpdateObjectSprite(ent)
 		tryResetObjectSprite(ent)
 		return
 	end
-	local params = UniqueItemsAPI.GetObjectParams(objectID, player, objectType)
+	local params = UniqueItemsAPI.GetObjectParams(objectID, player, objectType, false, ent)
 	if not params then
 		tryResetObjectSprite(ent)
 		return
@@ -160,7 +160,7 @@ function UniqueItemsAPI:ReplaceItemCostume(player)
 			tryResetCostume(player, itemID)
 			goto continue
 		end
-		local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE)
+		local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE, false, player)
 		if not params then
 			tryResetCostume(player, itemID)
 			goto continue
@@ -213,7 +213,7 @@ function UniqueItemsAPI:ReplaceCollectibleOnItemQueue(player)
 			local playerType = player:GetPlayerType()
 			local playerData = UniqueItemsAPI.GetObjectData(itemID, UniqueItemsAPI.ObjectType.COLLECTIBLE, playerType)
 			if not playerData then goto continue end
-			local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE)
+			local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE, false, player)
 			if params == nil then goto continue end
 			local sprite = Sprite()
 
@@ -256,7 +256,7 @@ function UniqueItemsAPI:ReplaceSpiritSwordProjectileOnInit(tear)
 	local playerType = player:GetPlayerType()
 	local playerData = UniqueItemsAPI.GetObjectData(knifeVariant, UniqueItemsAPI.ObjectType.KNIFE, playerType)
 	if not playerData then return end
-	local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, UniqueItemsAPI.ObjectType.KNIFE)
+	local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, UniqueItemsAPI.ObjectType.KNIFE, false, tear)
 	if not params then return end
 
 	---@type Sprite
@@ -292,7 +292,7 @@ function UniqueItemsAPI:ReplaceSwordSplashOnTearDeath(tear)
 		local playerType = player:GetPlayerType()
 		local playerData = UniqueItemsAPI.GetObjectData(knifeVariant, UniqueItemsAPI.ObjectType.KNIFE, playerType)
 		if not playerData then return end
-		local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, UniqueItemsAPI.ObjectType.KNIFE)
+		local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, UniqueItemsAPI.ObjectType.KNIFE, false, effect)
 		if not params then return end
 		local sprite = effect:GetSprite()
 

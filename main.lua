@@ -128,9 +128,14 @@ end
 
 saveManager.AddCallback(saveManager.Utility.CustomCallback.PRE_DATA_LOAD, UniqueItemsAPI.OnPreDataLoad)
 
-function UniqueItemsAPI:OnPostDataLoad(saveData)
-	local arbitrarySave = saveData.file.other
+local hasLoaded = false
 
+function UniqueItemsAPI:OnPostDataLoad(saveData)
+	--To both allow for older mods to simply stick their data inside their main.lua file without a callback
+	--and for those with callbacks to not be loaded more than once
+	if hasLoaded then return end
+	hasLoaded = true
+	local arbitrarySave = saveData.file.other
 	Isaac.RunCallback(UniqueItemsAPI.Callbacks.LOAD_UNIQUE_ITEMS)
 
 	UniqueItemsAPI.DisableAll = arbitrarySave.DisableAll
