@@ -1,4 +1,4 @@
---#region replace sprite of collectibles, familiars, knives
+--#region Replace sprite of Collectibles, Familiars, Knives
 
 local entTypeToItemType = {
 	[EntityType.ENTITY_PICKUP] = UniqueItemsAPI.ObjectType.COLLECTIBLE,
@@ -31,8 +31,17 @@ function UniqueItemsAPI:OnObjectInit(ent)
 	local originalAnm2 = sprite:GetFilename()
 
 	if params.Anm2 then
+		local animToPlay = sprite:GetAnimation() or sprite:GetDefaultAnimation()
+		local frame = sprite:GetFrame()
+		local isPlaying = sprite:IsPlaying(animToPlay)
+
 		sprite:Load(params.Anm2, true)
-		sprite:Play(sprite:GetDefaultAnimation(), true)
+
+		if not isPlaying then
+			sprite:SetFrame(animToPlay, frame)
+		else
+			sprite:SetAnimation(animToPlay, true)
+		end
 	end
 
 	if params.SpritePath then
@@ -42,7 +51,8 @@ function UniqueItemsAPI:OnObjectInit(ent)
 		sprite:LoadGraphics()
 	end
 
-	data.UniqueItemsAPISprite = {
+	local entData = ent:GetData()
+	entData.UniqueItemsAPISprite = {
 		SelectedModIndex = playerData.SelectedModIndex,
 		PlayerType = playerType,
 		DefaultAnm2 = originalAnm2
@@ -88,8 +98,9 @@ function UniqueItemsAPI:UpdateObjectSprite(ent)
 		local level = UniqueItemsAPI.Game:GetLevel()
 		if level:GetCurses() == LevelCurse.CURSE_OF_BLIND or ent.SubType == CollectibleType.COLLECTIBLE_NULL then return end
 	end
+	
 	local player = ent.Type == EntityType.ENTITY_PICKUP and UniqueItemsAPI.GetFirstAlivePlayer() or
-		UniqueItemsAPI.TryGetPlayer(ent)
+	UniqueItemsAPI.TryGetPlayer(ent)
 	if not player then return end
 	local playerType = player:GetPlayerType()
 	local data = ent:GetData()
@@ -97,11 +108,6 @@ function UniqueItemsAPI:UpdateObjectSprite(ent)
 	local objectType = entTypeToItemType[ent.Type]
 	local playerData = UniqueItemsAPI.GetObjectData(objectID, objectType, playerType)
 	if not playerData or UniqueItemsAPI.IsObjectDisabled(playerData) then
-		tryResetObjectSprite(ent)
-		return
-	end
-	local params = UniqueItemsAPI.GetObjectParams(objectID, player, objectType, false, ent)
-	if not params then
 		tryResetObjectSprite(ent)
 		return
 	end
@@ -113,6 +119,11 @@ function UniqueItemsAPI:UpdateObjectSprite(ent)
 	then
 		return
 	end
+	local params = UniqueItemsAPI.GetObjectParams(objectID, player, objectType, false, ent)
+	if not params then
+		tryResetObjectSprite(ent)
+		return
+	end
 
 	tryResetObjectSprite(ent)
 	UniqueItemsAPI:OnObjectInit(ent)
@@ -122,9 +133,9 @@ UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, UniqueItemsAPI.Up
 	PickupVariant.PICKUP_COLLECTIBLE)
 UniqueItemsAPI:AddCallback(ModCallbacks.MC_FAMILIAR_UPDATE, UniqueItemsAPI.UpdateObjectSprite)
 UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_KNIFE_UPDATE, UniqueItemsAPI.UpdateObjectSprite)
---#endregion
 
---#region costumes
+--#endregion
+--#region Costumes
 
 local itemConfig = UniqueItemsAPI.ItemConfig
 
@@ -243,8 +254,7 @@ end
 UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_PEFFECT_UPDATE, UniqueItemsAPI.OnPeffectUpdate)
 
 --#endregion
-
---#region spirit sword
+--#region Spirit Sword
 
 ---@param tear EntityTear
 function UniqueItemsAPI:ReplaceSpiritSwordProjectileOnInit(tear)
