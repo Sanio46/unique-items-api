@@ -651,24 +651,24 @@ end
 ---@param id integer
 ---@param name string
 function UniqueItemsAPI.RegisterItem(id, name)
-	if not name then return end
-	UniqueItemsAPI.AssignObjectName(id, name, UniqueItemsAPI.ObjectType.COLLECTIBLE)
+	--[[ if not name then return end
+	UniqueItemsAPI.AssignObjectName(id, name, UniqueItemsAPI.ObjectType.COLLECTIBLE) ]]
 end
 
 ---@deprecated
 ---@param id integer
 ---@param name string
 function UniqueItemsAPI.RegisterFamiliar(id, name)
-	if not name then return end
-	UniqueItemsAPI.AssignObjectName(id, name, UniqueItemsAPI.ObjectType.FAMILIAR)
+	--[[ if not name then return end
+	UniqueItemsAPI.AssignObjectName(id, name, UniqueItemsAPI.ObjectType.FAMILIAR) ]]
 end
 
 ---@deprecated
 ---@param id integer
 ---@param name string
 function UniqueItemsAPI.RegisterKnife(id, name)
-	if not name then return end
-	UniqueItemsAPI.AssignObjectName(id, name, UniqueItemsAPI.ObjectType.KNIFE)
+	--[[ if not name then return end
+	UniqueItemsAPI.AssignObjectName(id, name, UniqueItemsAPI.ObjectType.KNIFE) ]]
 end
 
 ---@deprecated
