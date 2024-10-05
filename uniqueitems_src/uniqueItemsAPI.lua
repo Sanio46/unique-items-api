@@ -320,7 +320,7 @@ function UniqueItemsAPI.RegisterCharacter(name, isTainted, displayName)
 	end
 	local playerType = Isaac.GetPlayerTypeByName(name, isTainted)
 	if playerType == -1 then return end
-	if isTainted and not displayName then
+	if isTainted and not displayName and not string.find(name, "Tainted") then
 		displayName = "Tainted " .. name
 	end
 	displayName = displayName or name
