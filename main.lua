@@ -1,510 +1,176 @@
---VERSION 1.1.1
+--VERSION 1.2
 
----@class UniqueItemSprite
----@field CurrentMod integer
----@field PlayerType PlayerType
+---@class ModReference
+UniqueItemsAPI = RegisterMod("Unique Items API", 1)
+UniqueItemsAPI.SaveManager = include("uniqueitems_src.save_manager")
+local saveManager = UniqueItemsAPI.SaveManager
+saveManager.Init(UniqueItemsAPI)
+UniqueItemsAPI.Game = Game()
+UniqueItemsAPI.ItemConfig = Isaac.GetItemConfig()
 
----@class UniqueFamiliarSprite : UniqueItemSprite
----@field DefaultAnm2 string
-
----@class UniqueKnifeSprite : UniqueFamiliarSprite
-
-local mod = RegisterMod("Unique Items API", 1)
-local game = Game()
-local api = include("uniqueitems_src.uniqueitems_api")
+include("uniqueitems_src.uniqueItemsAPI")
+include("uniqueitems_src.uniqueObjectLogic")
 local mcm = include("uniqueitems_src.modConfigMenu")
-local saveData = include("uniqueitems_src.saveData")
-local CurVersion = "1.1.1"
+UniqueItemsAPI.Version = "1.2"
 
-saveData:initAPI(api)
-
-mod.RandomRNG = RNG()
-mod.RunSeededRNG = RNG()
-mod.RandomRNG:SetSeed(Random() + 1, 35)
-function mod:RandomNum(lower, upper)
-	if upper then
-		return mod.RandomRNG:RandomInt((upper - lower) + 1) + lower
-	elseif lower then
-		return mod.RandomRNG:RandomInt(lower) + 1
-	else
-		return mod.RandomRNG:RandomFloat()
-	end
-end
-
-local function RunJustContinued()
-	local wasContinued = false
-	if #Isaac.FindByType(EntityType.ENTITY_PLAYER) == 0 then
-		wasContinued = true
-	end
-	return wasContinued
-end
-
----@param collectible EntityPickup
-function mod:ReplaceCollectibleOnInit(collectible)
-
-	local level = game:GetLevel()
-	if level:GetCurses() == LevelCurse.CURSE_OF_BLIND or collectible.SubType == CollectibleType.COLLECTIBLE_NULL then return end
-
-	local player = Isaac.GetPlayer(0) --Only for Player 1
-	local playerType = player:GetPlayerType()
-	---@type UniquePlayerParams | nil
-	local playerData = api.uniqueItems[collectible.SubType] ~= nil and api.uniqueItems[collectible.SubType][playerType] or nil
-	if playerData == nil then return end
-	local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetItemParams(collectible.SubType, player) or nil
-	if params == nil then return end
-	local ItemSprite = params.ItemSprite
-	if ItemSprite == nil then return end
-
-	local sprite = collectible:GetSprite()
-	local data = collectible:GetData()
-
-	sprite:ReplaceSpritesheet(1, ItemSprite)
-	sprite:LoadGraphics()
-	data.UniqueItemSprite = { CurrentMod = api.uniqueItems[collectible.SubType][playerType].CurrentMod,
-		PlayerType = playerType }
-end
-
----@param player EntityPlayer
-function mod:ReplaceItemCostume(player)
-	for itemID, itemData in pairs(api.uniqueItems) do
-		local playerType = player:GetPlayerType()
-		local data = player:GetData()
-
-		if not itemData[playerType] then return end
-
-		if player:HasCollectible(itemID)
-			and (not data.UniqueCostumeSprites or data.UniqueCostumeSprites[itemID] == nil)
-		then
-			local playerData = api.uniqueItems[itemID] ~= nil and api.uniqueItems[itemID][playerType] or nil
-			if playerData == nil then return end
-			local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetItemParams(itemID, player) or nil
-			if params == nil then return end
-
-			if params.CostumeSpritePath or params.NullCostume then
-				if not data.UniqueCostumeSprites then
-					data.UniqueCostumeSprites = {}
-				end
-				data.UniqueCostumeSprites[itemID] = { CurrentMod = api.uniqueItems[itemID][playerType].CurrentMod,
-					PlayerType = playerType, CollectibleNum = player:GetCollectibleNum(itemID) }
-			else
-				return
-			end
-
-			local itemConfig = Isaac.GetItemConfig()
-			if params.CostumeSpritePath ~= nil then
-				local itemConfigItem = itemConfig:GetCollectible(itemID)
-				local shouldAddCostume = itemConfigItem.Costume.ID ~= -1 and itemConfigItem.Type == ItemType.ITEM_ACTIVE and
-					player:GetEffects():HasCollectibleEffect(itemID) or ItemConfig.Config.ShouldAddCostumeOnPickup(itemConfigItem)
-
-				if shouldAddCostume then
-					player:ReplaceCostumeSprite(itemConfigItem, params.CostumeSpritePath, 0) --We don't need to worry about other layers because...this function is bugged to replace all layers! Woo...
-				end
-			end
-			if params.NullCostume ~= nil and not RunJustContinued() then
-				player:AddNullCostume(params.NullCostume)
-				data.UniqueCostumeSprites[itemID].NullCostume = params.NullCostume
-			end
-		end
-	end
-end
-
----@param player EntityPlayer
-function mod:ReplaceCollectibleOnItemQueue(player)
-	local data = player:GetData()
-
-	if player.QueuedItem.Item ~= nil then
-		for itemID, _ in pairs(api.uniqueItems) do
-
-			if player.QueuedItem.Item.ID == itemID
-				and not data.UniqueItemSpriteHeld
-			then
-				local playerType = player:GetPlayerType()
-				local playerData = api.uniqueItems[itemID] ~= nil and api.uniqueItems[itemID][playerType] or nil
-				if playerData == nil then return end
-				local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetItemParams(itemID, player) or nil
-				local sprite = Sprite()
-
-				sprite:Load("gfx/005.100_collectible.anm2", true)
-				sprite:Play("PlayerPickupSparkle", true)
-
-				if params == nil then
-					local itemConfigItem = Isaac.GetItemConfig():GetCollectible(itemID)
-					sprite:ReplaceSpritesheet(1, itemConfigItem.GfxFileName)
-				else
-					local ItemSprite = params.ItemSprite
-					sprite:ReplaceSpritesheet(1, ItemSprite)
-				end
-
-				sprite:LoadGraphics()
-				player:AnimatePickup(sprite, false, "Pickup")
-				data.UniqueItemSpriteHeld = true
-			end
-		end
-	end
-	if player:IsItemQueueEmpty() and data.UniqueItemSpriteHeld then
-		data.UniqueItemSpriteHeld = nil
-	end
-end
-
----@param familiar EntityFamiliar
-function mod:ReplaceFamiliarOnInit(familiar)
-	local player = familiar.Player
-	if not player then return end
-	local playerType = player:GetPlayerType()
-	local data = familiar:GetData()
-	local sprite = familiar:GetSprite()
-	---@type UniquePlayerParams | nil
-	local playerData = api.uniqueFamiliars[familiar.Variant] ~= nil and api.uniqueFamiliars[familiar.Variant][playerType] or nil
-	if playerData == nil then return end
-	local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetFamiliarParams(familiar.Variant, player) or nil
-	local originalAnm2 = sprite:GetFilename()
-
-	if params == nil then return end
-
-	if not data.UniqueFamiliarSprite then
-		if type(params.FamiliarSprite) == "table" then
-			for i = 0, sprite:GetLayerCount() - 1 do
-				local spritePath = params.FamiliarSprite[i]
-				if spritePath ~= nil then
-					sprite:ReplaceSpritesheet(i, params.FamiliarSprite[i])
-				end
-			end
-			sprite:LoadGraphics()
-		elseif type(params.FamiliarSprite) == "string" then
-			sprite:Load(params.FamiliarSprite, true)
-		end
-		---@class UniqueFamiliarSprite
-		data.UniqueFamiliarSprite = { CurrentMod = api.uniqueFamiliars[familiar.Variant][playerType].CurrentMod,
-			PlayerType = playerType, DefaultAnm2 = originalAnm2 }
-	end
-end
-
-local function LoadKnife(knife, anm2ToLoad)
-	local sprite = knife:GetSprite()
-	--Only happens for bone-like weapons
-	if (knife.Variant ~= 0 and knife.Variant ~= 5 and knife.Variant ~= 10 and knife.Variant ~= 11)
-		and knife:GetEntityFlags() == 67108864
-		and not game:IsPaused()
-	then
-		knife.Visible = false
-		return
-	end
-	local animToPlay = sprite:GetAnimation()
-	local frame = sprite:GetFrame()
-	local isPlaying = sprite:IsPlaying(animToPlay)
-
-	sprite:Load(anm2ToLoad, true)
-	sprite:Play(animToPlay, true)
-	sprite:SetFrame(frame)
-	if not isPlaying then
-		sprite:Stop()
-	end
-end
-
----@param knife EntityKnife
-function mod:ReplaceKnifeOnInit(knife)
-	local parent = knife.SpawnerEntity and (knife.SpawnerEntity:ToPlayer() or knife.SpawnerEntity:ToFamiliar())
-	if not parent then return end
-	---@type EntityPlayer
-	local player = parent:ToPlayer() or parent:ToFamiliar().Player
-	if not player then return end
-	local playerType = player:GetPlayerType()
-	local data = knife:GetData()
-	local sprite = knife:GetSprite()
-	---@type UniquePlayerParams | nil
-	local playerData = api.uniqueKnives[knife.Variant] ~= nil and api.uniqueKnives[knife.Variant][playerType] or nil
-	if playerData == nil then return end
-	local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetKnifeParams(knife.Variant, player) or nil
-	local originalAnm2 = sprite:GetFilename()
-
-	if params == nil then return end
-
-	if not data.UniqueKnifeSprite then
-		if type(params.KnifeSprite) == "table" then
-			for i = 0, sprite:GetLayerCount() - 1 do
-				local spritePath = params.KnifeSprite[i]
-				if spritePath ~= nil then
-					sprite:ReplaceSpritesheet(i, params.KnifeSprite[i])
-				end
-			end
-			sprite:LoadGraphics()
-		elseif type(params.KnifeSprite) == "string" then
-			LoadKnife(knife, params.KnifeSprite)
-		end
-		---@class UniqueKnifeSprite
-		data.UniqueKnifeSprite = { CurrentMod = api.uniqueKnives[knife.Variant][playerType].CurrentMod, PlayerType = playerType,
-			DefaultAnm2 = originalAnm2 }
-	end
-end
-
-local lastFrameCheckCollectible = 0
-
----@param collectible EntityPickup
-function mod:UpdateCollectibleSprite(collectible)
-	if collectible.SubType == CollectibleType.COLLECTIBLE_NULL then return end
-	local player = Isaac.GetPlayer(0)
-	local playerType = player:GetPlayerType()
-	local data = collectible:GetData()
-	local params = UniqueItemsAPI.GetItemParams(collectible.SubType, player, true)
-	---@type UniquePlayerParams | nil
-	local playerData = params ~= nil and api.uniqueItems[collectible.SubType][playerType]
-	local isDisabled = params ~= nil and (playerData.Disabled or playerData.TempDisabled) or false
-
-	if (data.UniqueItemSprite
-		and (
-		data.UniqueItemSprite.PlayerType ~= playerType
-			or (params == nil or isDisabled == true or data.UniqueItemSprite.CurrentMod ~= playerData.CurrentMod)
-		)
-		)
-		or (data.UniqueItemSprite == nil and params ~= nil and isDisabled == false)
-		or (params ~= nil and game:GetFrameCount() >= lastFrameCheckCollectible + 15)
-	then
-		lastFrameCheckCollectible = game:GetFrameCount()
-		data.UniqueItemSprite = nil
-		if params == nil or isDisabled == true then
-			local sprite = collectible:GetSprite()
-			local itemConfigItem = Isaac.GetItemConfig():GetCollectible(collectible.SubType)
-			sprite:ReplaceSpritesheet(1, itemConfigItem.GfxFileName)
-			sprite:LoadGraphics()
-		else
-			mod:ReplaceCollectibleOnInit(collectible)
-		end
-	end
-end
-
---gaming
----@param player EntityPlayer
-function mod:UpdateItemCostume(player)
-	local playerType = player:GetPlayerType()
-	local data = player:GetData()
-
-	if not data.UniqueCostumeSprites then data.UniqueCostumeSprites = {} end
-
-	for itemID, costumeData in pairs(data.UniqueCostumeSprites) do
-		local params = UniqueItemsAPI.GetItemParams(itemID, player)
-		local playerData = params ~= nil and api.uniqueItems[itemID][playerType]
-		local isDisabled = params ~= nil and (playerData.Disabled or playerData.TempDisabled) or nil
-
-		if (data.UniqueCostumeSprites[itemID] ~= nil
-			and (
-			costumeData.PlayerType ~= playerType
-				or player:GetCollectibleNum(itemID) ~= costumeData.CollectibleNum
-				or (params == nil or isDisabled == true or data.UniqueCostumeSprites[itemID].CurrentMod ~= playerData.CurrentMod)
-			)
-			)
-			or (data.UniqueCostumeSprites[itemID] == nil and params ~= nil and isDisabled == false)
-		then
-			local itemConfigItem = Isaac.GetItemConfig():GetCollectible(itemID)
-
-			player:AddCostume(itemConfigItem, false)
-			if costumeData.NullCostume ~= nil then
-				player:TryRemoveNullCostume(costumeData.NullCostume)
-			end
-			data.UniqueCostumeSprites[itemID] = nil
-			if params ~= nil and isDisabled == false then
-				mod:ReplaceItemCostume(player)
-			end
-		end
-	end
-end
-
-local lastFrameCheckFamiliar = 0
-
----@param familiar EntityFamiliar
-function mod:UpdateFamiliarSprite(familiar)
-	---@type EntityPlayer
-	local player = familiar.Player
-	if not player then return end
-	local playerType = player:GetPlayerType()
-	local data = familiar:GetData()
-	local params = UniqueItemsAPI.GetFamiliarParams(familiar.Variant, familiar)
-	local playerData = params ~= nil and api.uniqueFamiliars[familiar.Variant][playerType]
-	local isDisabled = params ~= nil and playerData.Disabled or false
-	---@type UniqueFamiliarSprite
-	local spriteData = data.UniqueFamiliarSprite
-
-	if (
-		spriteData and
-			(
-			spriteData.PlayerType ~= playerType or
-				(params == nil or isDisabled == true or spriteData.CurrentMod ~= playerData.CurrentMod)))
-		or (spriteData == nil and params ~= nil and isDisabled == false)
-		or (params ~= nil and game:GetFrameCount() >= lastFrameCheckFamiliar + 15)
-	then
-		lastFrameCheckFamiliar = game:GetFrameCount()
-		local sprite = familiar:GetSprite()
-		local animPlaying = sprite:GetAnimation()
-		local animToPlay = animPlaying or sprite:GetDefaultAnimation()
-		local anm2File = spriteData and spriteData.DefaultAnm2 or sprite:GetFilename()
-		data.UniqueFamiliarSprite = nil
-
-		sprite:Load(anm2File, true)
-		sprite:SetAnimation(animToPlay, true)
-		sprite:Play(animToPlay, true)
-		if params ~= nil and isDisabled == false then
-			mod:ReplaceFamiliarOnInit(familiar)
-		end
-	end
-end
-
-local lastFrameCheckKnife = 0
-
----@param knife EntityKnife
-function mod:UpdateKnifeSprite(knife)
-	local parent = knife.SpawnerEntity and (knife.SpawnerEntity:ToPlayer() or knife.SpawnerEntity:ToFamiliar())
-	if not parent then return end
-	---@type EntityPlayer
-	local player = parent:ToPlayer() or parent:ToFamiliar().Player
-	if not player then return end
-	local playerType = player:GetPlayerType()
-	local data = knife:GetData()
-	local params = UniqueItemsAPI.GetKnifeParams(knife.Variant, knife)
-	local playerData = params ~= nil and api.uniqueKnives[knife.Variant][playerType]
-	local isDisabled = params ~= nil and (playerData.Disabled or playerData.TempDisabled) or false
-	---@type UniqueKnifeSprite
-	local spriteData = data.UniqueKnifeSprite
-
-	if (
-		spriteData and
-			(
-			spriteData.PlayerType ~= playerType or
-				(params == nil or isDisabled == true or spriteData.CurrentMod ~= playerData.CurrentMod)))
-		or (spriteData == nil and params ~= nil and isDisabled == false)
-		or (params ~= nil and game:GetFrameCount() >= lastFrameCheckKnife + 15)
-	then
-		lastFrameCheckKnife = game:GetFrameCount()
-		local sprite = knife:GetSprite()
-		local anm2File = spriteData and spriteData.DefaultAnm2 or sprite:GetFilename()
-		LoadKnife(knife, anm2File)
-		data.UniqueKnifeSprite = nil
-		if params ~= nil and isDisabled == false then
-			mod:ReplaceKnifeOnInit(knife)
-		end
-	end
-end
-
----@param player EntityPlayer
-function mod:OnPlayerUpdate(player)
-	mod:UpdateItemCostume(player)
-	mod:ReplaceItemCostume(player)
-	mod:ReplaceCollectibleOnItemQueue(player)
-end
-
-local tearToKnifeVariant = {
-	[TearVariant.SWORD_BEAM] = 10,
-	[TearVariant.TECH_SWORD_BEAM] = 11
-}
-
----@param tear EntityTear
-function mod:ReplaceSpiritSwordProjectileOnInit(tear)
-	local parent = tear.SpawnerEntity and (tear.SpawnerEntity:ToPlayer() or tear.SpawnerEntity:ToFamiliar())
-	if not parent then return end
-	---@type EntityPlayer
-	local player = parent:ToPlayer() or parent:ToFamiliar().Player
-	local knifeVariant = tearToKnifeVariant[tear.Variant]
-	---@type UniquePlayerParams | nil
-	local playerData = api.uniqueKnives[knifeVariant] ~= nil and api.uniqueKnives[knifeVariant][playerType] or nil
-	if playerData == nil then return end
-	local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetKnifeParams(knifeVariant, player) or nil
-	if not params then return end
-
-	---@type Sprite
-	local sprite = tear:GetSprite()
-	if params.SwordProjectile and params.SwordProjectile.Beam then
-		if string.sub(params.SwordProjectile.Beam, -5, -1) == ".anm2" then
-			sprite:Load(params.SwordProjectile.Beam, true)
-			sprite:Play(sprite:GetDefaultAnimation(), true)
-		elseif string.sub(params.SwordProjectile.Beam, -4, -1) == ".png" then
-			sprite:ReplaceSpritesheet(0, params.SwordProjectile.Beam)
-			sprite:LoadGraphics()
-		end
-	elseif type(params.KnifeSprite) == "table" then
-		local validLayer
-		for _, spritePath in pairs(params.KnifeSprite) do
-			validLayer = spritePath
+function UniqueItemsAPI:OnPostGameStarted()
+	local noItems = true
+	for _, objectTable in pairs(UniqueItemsAPI.ObjectData) do
+		if next(objectTable) then
+			noItems = false
 			break
 		end
-		if validLayer ~= nil then
-			sprite:ReplaceSpritesheet(0, validLayer)
-			sprite:LoadGraphics()
-		end
 	end
+	mcm:GenerateModConfigMenu(noItems)
 end
 
----@param tear EntityTear
-function mod:ReplaceSwordSplashOnTearDeath(tear)
-	if tear.Variant ~= TearVariant.SWORD_BEAM
-		and tear.Variant ~= TearVariant.TECH_SWORD_BEAM
-	then
-		return
+UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, UniqueItemsAPI.OnPostGameStarted)
+
+---@param playerData {Name: string, IsTainted: boolean}
+local function getPlayerSaveIndex(playerData)
+	local name = playerData.Name
+	local taintedSuffix = playerData.IsTainted and ".B" or ""
+	name = name .. taintedSuffix
+	return name
+end
+
+---@param objectTypeName string
+---@param objectName string
+local function getObjectSaveIndex(objectTypeName, objectName)
+	return table.concat({ objectTypeName, objectName }, "_")
+end
+
+function UniqueItemsAPI:OnPreDataSave(saveData)
+	local arbitrarySave = saveData.file.other
+	arbitrarySave.DisableAll = UniqueItemsAPI.DisableAll
+	arbitrarySave.RandomizeAll = UniqueItemsAPI.RandomizeAll
+	arbitrarySave.AllObjectData = {}
+
+	for tableName, tableData in pairs(UniqueItemsAPI.ObjectData) do
+		for _, objectData in pairs(tableData) do
+			local curMod = objectData.SelectedModIndex
+			local state = curMod == -1 and "Randomized" or curMod == 0 and "Disabled" or objectData.AllMods[curMod]
+			local objectSave = {
+				PlayerData = {},
+				State = state
+			}
+			for playerType, playerData in pairs(objectData.AllPlayers) do
+				local playerSaveIndex = getPlayerSaveIndex(UniqueItemsAPI.RegisteredCharacters[playerType])
+				curMod = playerData.SelectedModIndex
+				state = curMod == -1 and "Randomized" or curMod == 0 and "Disabled" or playerData.ModData[curMod].ModName
+				objectSave.PlayerData[playerSaveIndex] = state
+			end
+			local objectSaveIndex = getObjectSaveIndex(tableName, objectData.Name)
+			arbitrarySave.AllObjectData[objectSaveIndex] = objectSave
+		end
 	end
+	return saveData
+end
 
-	for _, effect in ipairs(Isaac.FindByType(EntityType.ENTITY_EFFECT, EffectVariant.TEAR_POOF_A)) do
-		if effect.Position:DistanceSquared(tear.Position) <= 5 ^ 2 then
-			local parent = tear.SpawnerEntity and (tear.SpawnerEntity:ToPlayer() or tear.SpawnerEntity:ToFamiliar())
-			if not parent then return end
-			---@type EntityPlayer
-			local player = parent:ToPlayer() or parent:ToFamiliar().Player
-			local knifeVariant = tearToKnifeVariant[tear.Variant]
-			---@type UniquePlayerParams | nil
-			local playerData = api.uniqueKnives[knifeVariant] ~= nil and api.uniqueKnives[knifeVariant][playerType] or nil
-			if playerData == nil then return end
-			local params = (playerData.Disabled == false and playerData.TempDisabled == false) and UniqueItemsAPI.GetKnifeParams(knifeVariant, player) or nil
-			if not params then return end
+saveManager.AddCallback(saveManager.Utility.CustomCallback.PRE_DATA_SAVE, UniqueItemsAPI.OnPreDataSave)
 
-			---@type Sprite
-			local sprite = effect:GetSprite()
-
-			if params.SwordProjectile and params.SwordProjectile.Splash then
-				if string.sub(params.SwordProjectile.Splash, -5, -1) == ".anm2" then
-					sprite:Load(params.SwordProjectile.Splash, true)
-					sprite:Play(sprite:GetDefaultAnimation(), true)
-				elseif string.sub(params.SwordProjectile.Splash, -4, -1) == ".png" then
-					sprite:ReplaceSpritesheet(0, params.SwordProjectile.Splash)
-					sprite:LoadGraphics()
-				end
-			elseif type(params.KnifeSprite) == "table" then
-				local validLayer
-				for _, spritePath in pairs(params.KnifeSprite) do
-					validLayer = spritePath
-					break
-				end
-				if validLayer ~= nil then
-					sprite:ReplaceSpritesheet(0, validLayer)
-					sprite:LoadGraphics()
-				end
+---@param state string
+---@return integer?
+local function getObjectState(mods, state)
+	if state == "Randomized" then
+		return -1
+	elseif state == "Disabled" then
+		return 0
+	else
+		for index, modName in ipairs(mods) do
+			if modName == state then
+				return index
 			end
 		end
 	end
 end
 
-local noItems = true
+local function extractObjectIndexData(objectSaveIndex)
+	local sepStart, sepEnd = string.find(objectSaveIndex, "_")
+	local objectTypeName = string.sub(objectSaveIndex, 1, sepStart - 1)
+	local objectName = string.sub(objectSaveIndex, sepEnd + 1, -1)
 
-function mod:CheckItemsOnGameStart()
-	for itemID, itemData in pairs(api.uniqueItems) do
-		noItems = false
+	return objectTypeName, objectName
+end
+
+local function extractPlayerIndexData(playerSaveIndex)
+	local name = playerSaveIndex
+	local start2 = string.sub(playerSaveIndex, -2, -1)
+	local isTainted = start2 == ".B"
+	if isTainted then
+		name = string.sub(name, 1, -3)
 	end
-	for familiarVariant, familiarData in pairs(api.uniqueFamiliars) do
-		noItems = false
-	end
-	for knifeVariant, knifeData in pairs(api.uniqueKnives) do
-		noItems = false
+
+	return name, isTainted
+end
+
+---@param state string
+---@return integer?
+local function getPlayerModsObjectState(mods, state)
+	if state == "Randomized" then
+		return -1
+	elseif state == "Disabled" then
+		return 0
+	else
+		for index, modData in ipairs(mods) do
+			if modData.ModName == state then
+				return index
+			end
+		end
 	end
 end
 
-function mod:OnPostGameStarted()
-	mod:CheckItemsOnGameStart()
-	mcm:GenerateModConfigMenu(api, CurVersion, noItems)
+function UniqueItemsAPI:OnPreDataLoad(saveData)
+	if saveData.uniqueItems then
+		return UniqueItemsAPI.SaveManager.Utility.PatchSaveFile({}, UniqueItemsAPI.SaveManager.DEFAULT_SAVE) --Completely wipe pre-existing save data
+	end
 end
 
-mod:AddCallback(ModCallbacks.MC_POST_GAME_STARTED, mod.OnPostGameStarted)
-mod:AddCallback(ModCallbacks.MC_POST_PLAYER_UPDATE, mod.OnPlayerUpdate)
-mod:AddCallback(ModCallbacks.MC_POST_PICKUP_INIT, mod.ReplaceCollectibleOnInit, PickupVariant.PICKUP_COLLECTIBLE)
-mod:AddCallback(ModCallbacks.MC_FAMILIAR_INIT, mod.ReplaceFamiliarOnInit)
-mod:AddCallback(ModCallbacks.MC_POST_KNIFE_INIT, mod.ReplaceKnifeOnInit)
-mod:AddCallback(ModCallbacks.MC_POST_PICKUP_UPDATE, mod.UpdateCollectibleSprite, PickupVariant.PICKUP_COLLECTIBLE)
-mod:AddCallback(ModCallbacks.MC_FAMILIAR_UPDATE, mod.UpdateFamiliarSprite)
-mod:AddCallback(ModCallbacks.MC_POST_KNIFE_UPDATE, mod.UpdateKnifeSprite)
-mod:AddCallback(ModCallbacks.MC_POST_TEAR_INIT, mod.ReplaceSpiritSwordProjectileOnInit, TearVariant.SWORD_BEAM)
-mod:AddCallback(ModCallbacks.MC_POST_TEAR_INIT, mod.ReplaceSpiritSwordProjectileOnInit, TearVariant.TECH_SWORD_BEAM)
-mod:AddCallback(ModCallbacks.MC_POST_ENTITY_REMOVE, mod.ReplaceSwordSplashOnTearDeath, EntityType.ENTITY_TEAR)
+saveManager.AddCallback(saveManager.Utility.CustomCallback.PRE_DATA_LOAD, UniqueItemsAPI.OnPreDataLoad)
+
+local hasLoaded = false
+
+function UniqueItemsAPI:OnPostDataLoad(saveData)
+	--To both allow for older mods to simply stick their data inside their main.lua file without a callback
+	--and for those with callbacks to not be loaded more than once
+	if hasLoaded then return end
+	hasLoaded = true
+	local arbitrarySave = saveData.file.other
+	Isaac.RunCallback(UniqueItemsAPI.Callbacks.LOAD_UNIQUE_ITEMS)
+
+	UniqueItemsAPI.DisableAll = arbitrarySave.DisableAll
+	UniqueItemsAPI.RandomizeAll = arbitrarySave.RandomizeAll
+
+	if not arbitrarySave.AllObjectData then
+		arbitrarySave.AllObjectData = {}
+	end
+	
+	for objectSaveIndex, objectSave in pairs(arbitrarySave.AllObjectData) do
+		local objectTypeName, objectName = extractObjectIndexData(objectSaveIndex)
+		if not UniqueItemsAPI.ObjectData[objectTypeName] then goto continue end
+		local objectLookup = UniqueItemsAPI.ObjectLookupTable[objectTypeName][objectName]
+		if not objectLookup or not objectLookup.ObjectData then goto continue end
+		local objectData = objectLookup.ObjectData
+		if objectData.Name == objectName then
+			local objectState = getObjectState(objectData.AllMods, objectSave.State)
+			if not objectState then
+				objectState = 1
+			end
+			objectData.SelectedModIndex = objectState
+			for playerSaveIndex, playerSaveState in pairs(objectSave.PlayerData) do
+				local name, isTainted = extractPlayerIndexData(playerSaveIndex)
+				local playerData = objectLookup.CharacterLookupTable[isTainted and "Tainted" or "Normal"][name]
+				if not playerData then goto continue end
+				local playerState = getPlayerModsObjectState(playerData.ModData, playerSaveState)
+				if not playerState then
+					playerState = 1
+				end
+				playerData.SelectedModIndex = playerState
+			end
+		end
+
+		::continue::
+	end
+end
+
+saveManager.AddCallback(saveManager.Utility.CustomCallback.POST_DATA_LOAD, UniqueItemsAPI.OnPostDataLoad)
