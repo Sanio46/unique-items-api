@@ -121,7 +121,7 @@ local function getPlayerModsObjectState(mods, state)
 end
 
 function UniqueItemsAPI:OnPreDataLoad(saveData)
-	if saveData.APIData then
+	if saveData.uniqueItems then
 		return UniqueItemsAPI.SaveManager.Utility.PatchSaveFile({}, UniqueItemsAPI.SaveManager.DEFAULT_SAVE) --Completely wipe pre-existing save data
 	end
 end
@@ -140,6 +140,10 @@ function UniqueItemsAPI:OnPostDataLoad(saveData)
 
 	UniqueItemsAPI.DisableAll = arbitrarySave.DisableAll
 	UniqueItemsAPI.RandomizeAll = arbitrarySave.RandomizeAll
+
+	if not arbitrarySave.AllObjectData then
+		arbitrarySave.AllObjectData = {}
+	end
 	
 	for objectSaveIndex, objectSave in pairs(arbitrarySave.AllObjectData) do
 		local objectTypeName, objectName = extractObjectIndexData(objectSaveIndex)

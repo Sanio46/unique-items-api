@@ -66,11 +66,14 @@ function mcm:GenerateModConfigMenu(noItems)
 		local tableName = i == 1 and "Collectibles" or i == 2 and "Familiars" or "Knives"
 		local objectTable = UniqueItemsAPI.ObjectData[tableName]
 		local subcategoryName = tableName
-		ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
-			Name = subcategoryName,
-			Info = "API Settings for" .. string.lower(tableName) .. ": " .. subcategoryName
-		})
-		
+
+		if next(objectTable) then
+			ModConfigMenu.UpdateSubcategory(modName, subcategoryName, {
+				Name = subcategoryName,
+				Info = "API Settings for " .. string.lower(tableName) .. ": " .. subcategoryName
+			})
+		end
+
 		local lastOptionID = 0
 		---@param ID integer
 		---@param objectData UniqueObjectData
@@ -82,7 +85,7 @@ function mcm:GenerateModConfigMenu(noItems)
 				table.insert(playerNames, playerType)
 			end
 			table.sort(playerNames)
-			
+
 
 			optionID = optionID + 1
 			ModConfigMenu.AddTitle(modName, subcategoryName, objectData.DisplayName)
@@ -106,9 +109,10 @@ function mcm:GenerateModConfigMenu(noItems)
 						elseif objectData.SelectedModIndex == -1 then
 							display = "Randomized"
 						else
-							local settingName  = objectData.AllMods[objectData.SelectedModIndex]
+							local settingName = objectData.AllMods[objectData.SelectedModIndex]
 							if #objectData.AllMods > 1 then
-								settingName = settingName ..  " (" .. objectData.SelectedModIndex .. "/" .. #objectData.AllMods .. ")"
+								settingName = settingName ..
+								" (" .. objectData.SelectedModIndex .. "/" .. #objectData.AllMods .. ")"
 							end
 							display = settingName
 						end
@@ -129,9 +133,9 @@ function mcm:GenerateModConfigMenu(noItems)
 					Info = "Changes settings for all characters if the setting is available to them."
 				})
 			end
-			
+
 			optionID = optionID + 1
-			
+
 			--CHARACTER
 			ModConfigMenu.AddSetting(modName, subcategoryName, {
 				Type = ModConfigMenu.OptionType.NUMBER,
@@ -142,8 +146,11 @@ function mcm:GenerateModConfigMenu(noItems)
 				Maximum = #playerNames,
 				ModifyBy = 1,
 				Display = function()
-					local characterName = UniqueItemsAPI.RegisteredCharacters[playerNames[objectData.SelectedPlayerIndex]].DisplayName
-					local settingName = #playerNames > 1 and characterName .. " (" .. objectData.SelectedPlayerIndex .. "/" .. #playerNames .. ")" or characterName
+					local characterName = UniqueItemsAPI.RegisteredCharacters
+					[playerNames[objectData.SelectedPlayerIndex]].DisplayName
+					local settingName = #playerNames > 1 and
+					characterName .. " (" .. objectData.SelectedPlayerIndex .. "/" .. #playerNames .. ")" or
+					characterName
 					return "Character: " .. settingName
 				end,
 				OnChange = function(currentNum)
@@ -183,9 +190,10 @@ function mcm:GenerateModConfigMenu(noItems)
 					elseif not playerData.ModData[selectedModIndex] then
 						return "ERROR: No data at index " .. selectedModIndex
 					else
-						local settingName  = playerData.ModData[selectedModIndex].ModName
+						local settingName = playerData.ModData[selectedModIndex].ModName
 						if #playerData.ModData > 1 then
-							settingName = settingName .. " (" .. playerData.SelectedModIndex .. "/" .. #playerData.ModData .. ")"
+							settingName = settingName ..
+							" (" .. playerData.SelectedModIndex .. "/" .. #playerData.ModData .. ")"
 						end
 						display = settingName
 					end
@@ -195,7 +203,8 @@ function mcm:GenerateModConfigMenu(noItems)
 				OnChange = function(currentNum)
 					local playerData = objectData.AllPlayers[playerNames[objectData.SelectedPlayerIndex]]
 					playerData.SelectedModIndex = currentNum
-					local currentOption = ModConfigMenu.MenuData[categoryID].Subcategories[ModConfigMenu.GetSubcategoryIDByName(categoryID, subcategoryName)].Options[optionID]
+					local currentOption = ModConfigMenu.MenuData[categoryID].Subcategories
+					[ModConfigMenu.GetSubcategoryIDByName(categoryID, subcategoryName)].Options[optionID]
 					currentOption.Minimum = getMinOrMaxSetting(false)
 					currentOption.Maximum = getMinOrMaxSetting(true)
 				end
