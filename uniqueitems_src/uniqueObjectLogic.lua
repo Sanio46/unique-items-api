@@ -6,6 +6,55 @@ local entTypeToItemType = {
 	[EntityType.ENTITY_KNIFE] = UniqueItemsAPI.ObjectType.KNIFE
 }
 
+local function hideExtraKnife(ent)
+	if ent.Type == EntityType.ENTITY_KNIFE
+		and ent.Visible
+		and (ent.Variant ~= 0 and ent.Variant ~= 5 and ent.Variant ~= 10 and ent.Variant ~= 11)
+		and ent:GetEntityFlags() == 67108864
+		and UniqueItemsAPI.Game:GetFrameCount() > 5
+	then
+		ent.Visible = false
+		return true
+	end
+end
+
+---@param ent Entity
+---@param useAnm2? string
+local function tryResetObjectSprite(ent, useAnm2)
+	local data = ent:GetData()
+
+	if data.UniqueItemsAPISprite then
+		if hideExtraKnife(ent) then
+			return
+		end
+		local sprite = ent:GetSprite()
+		local animToPlay = sprite:GetAnimation() or sprite:GetDefaultAnimation()
+		local overlayToPlay = sprite:GetOverlayAnimation()
+		local frame = sprite:GetFrame()
+		local overlayFrame = sprite:GetOverlayFrame()
+		local isPlaying = sprite:IsPlaying(animToPlay)
+		local isOverlayPlaying = sprite:IsOverlayPlaying(overlayToPlay)
+		local anm2ToUse = useAnm2 or data.UniqueItemsAPISprite.DefaultAnm2
+
+		sprite:Load(anm2ToUse, true)
+		sprite:SetFrame(animToPlay, frame)
+
+		if isPlaying then
+			sprite:Continue()
+		end
+
+		if overlayToPlay then
+			sprite:SetOverlayFrame(overlayToPlay, overlayFrame)
+		end
+		if isOverlayPlaying then
+			sprite:Continue()
+		end
+	end
+	if not useAnm2 then
+		data.UniqueItemsAPISprite = nil
+	end
+end
+
 ---@param ent Entity
 function UniqueItemsAPI:OnObjectInit(ent)
 	if ent.Type == EntityType.ENTITY_PICKUP then
@@ -31,17 +80,7 @@ function UniqueItemsAPI:OnObjectInit(ent)
 	local originalAnm2 = sprite:GetFilename()
 
 	if params.Anm2 then
-		local animToPlay = sprite:GetAnimation() or sprite:GetDefaultAnimation()
-		local frame = sprite:GetFrame()
-		local isPlaying = sprite:IsPlaying(animToPlay)
-
-		sprite:Load(params.Anm2, true)
-
-		if not isPlaying then
-			sprite:SetFrame(animToPlay, frame)
-		else
-			sprite:SetAnimation(animToPlay, true)
-		end
+		tryResetObjectSprite(ent, params.Anm2)
 	end
 
 	if params.SpritePath then
@@ -65,42 +104,14 @@ UniqueItemsAPI:AddCallback(ModCallbacks.MC_FAMILIAR_INIT, UniqueItemsAPI.OnObjec
 UniqueItemsAPI:AddCallback(ModCallbacks.MC_POST_KNIFE_INIT, UniqueItemsAPI.OnObjectInit)
 
 ---@param ent Entity
-local function tryResetObjectSprite(ent)
-	local data = ent:GetData()
-	if data.UniqueItemsAPISprite then
-		if ent.Type == EntityType.ENTITY_KNIFE then
-			if (ent.Variant ~= 0 and ent.Variant ~= 5 and ent.Variant ~= 10 and ent.Variant ~= 11)
-				and ent:GetEntityFlags() == 67108864
-				and not UniqueItemsAPI.Game:IsPaused()
-			then
-				ent.Visible = false
-				return
-			end
-		end
-		local sprite = ent:GetSprite()
-		local animToPlay = sprite:GetAnimation() or sprite:GetDefaultAnimation()
-		local frame = sprite:GetFrame()
-		local isPlaying = sprite:IsPlaying(animToPlay)
-
-		sprite:Load(data.UniqueItemsAPISprite.DefaultAnm2, true)
-
-		if not isPlaying then
-			sprite:SetFrame(animToPlay, frame)
-		else
-			sprite:SetAnimation(animToPlay, true)
-		end
-	end
-end
-
----@param ent Entity
 function UniqueItemsAPI:UpdateObjectSprite(ent)
 	if ent.Type == EntityType.ENTITY_PICKUP then
 		local level = UniqueItemsAPI.Game:GetLevel()
 		if level:GetCurses() == LevelCurse.CURSE_OF_BLIND or ent.SubType == CollectibleType.COLLECTIBLE_NULL then return end
 	end
-	
+
 	local player = ent.Type == EntityType.ENTITY_PICKUP and UniqueItemsAPI.GetFirstAlivePlayer() or
-	UniqueItemsAPI.TryGetPlayer(ent)
+		UniqueItemsAPI.TryGetPlayer(ent)
 	if not player then return end
 	local playerType = player:GetPlayerType()
 	local data = ent:GetData()
@@ -125,7 +136,6 @@ function UniqueItemsAPI:UpdateObjectSprite(ent)
 		return
 	end
 
-	tryResetObjectSprite(ent)
 	UniqueItemsAPI:OnObjectInit(ent)
 end
 
@@ -171,7 +181,8 @@ function UniqueItemsAPI:ReplaceItemCostume(player)
 			tryResetCostume(player, itemID)
 			goto continue
 		end
-		local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE, false, player)
+		local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE, false,
+			player)
 		if not params then
 			tryResetCostume(player, itemID)
 			goto continue
@@ -224,7 +235,8 @@ function UniqueItemsAPI:ReplaceCollectibleOnItemQueue(player)
 			local playerType = player:GetPlayerType()
 			local playerData = UniqueItemsAPI.GetObjectData(itemID, UniqueItemsAPI.ObjectType.COLLECTIBLE, playerType)
 			if not playerData then goto continue end
-			local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE, false, player)
+			local params = UniqueItemsAPI.GetObjectParams(itemID, player, UniqueItemsAPI.ObjectType.COLLECTIBLE, false,
+				player)
 			if params == nil then goto continue end
 			local sprite = Sprite()
 
@@ -302,7 +314,8 @@ function UniqueItemsAPI:ReplaceSwordSplashOnTearDeath(tear)
 		local playerType = player:GetPlayerType()
 		local playerData = UniqueItemsAPI.GetObjectData(knifeVariant, UniqueItemsAPI.ObjectType.KNIFE, playerType)
 		if not playerData then return end
-		local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, UniqueItemsAPI.ObjectType.KNIFE, false, effect)
+		local params = UniqueItemsAPI.GetObjectParams(knifeVariant, player, UniqueItemsAPI.ObjectType.KNIFE, false,
+			effect)
 		if not params then return end
 		local sprite = effect:GetSprite()
 

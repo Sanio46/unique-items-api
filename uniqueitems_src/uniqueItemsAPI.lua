@@ -39,6 +39,7 @@ local nameMap = require("uniqueitems_src.nameMap")
 ---@field KnifeVariant integer
 ---@field KnifeSprite string | string[]
 ---@field DisabledOnFirstLoad boolean
+---@field KnifeEntity EntityKnife
 
 --#endregion
 --#region Variables
@@ -831,6 +832,9 @@ function UniqueItemsAPI.GetKnifeParams(knifeVariant, knife, noModifier)
 		params.KnifeVariant = params.ObjectID
 		params.KnifeSprite = params.SpritePath or params.Anm2
 		params.DisabledOnFirstLoad = params.DisableByDefault
+		if params.KnifeEntity then
+			params.ObjectEntity = params.KnifeEntity
+		end
 	end
 	return params
 end
