@@ -21,6 +21,7 @@ function mcm:GenerateModConfigMenu(noItems)
 	ModConfigMenu.AddText(modName, "Info", "Version " .. UniqueItemsAPI.Version)
 	ModConfigMenu.AddSpace(modName, "Info")
 	ModConfigMenu.AddText(modName, "Info", "by Sanio")
+	local categoryID = ModConfigMenu.GetCategoryIDByName(modName)
 
 	if noItems then
 		ModConfigMenu.AddText(modName, "General", "No other compatible mods are installed!")
@@ -70,20 +71,26 @@ function mcm:GenerateModConfigMenu(noItems)
 			Info = "API Settings for" .. string.lower(tableName) .. ": " .. subcategoryName
 		})
 		
+		local lastOptionID = 0
 		---@param ID integer
 		---@param objectData UniqueObjectData
 		for ID, objectData in pairs(objectTable) do
-
+			local optionID = 0 + lastOptionID
 			displayPlayers[tableName][ID] = {}
 			local playerNames = displayPlayers[tableName][ID]
 			for playerType, _ in pairs(objectData.AllPlayers) do
 				table.insert(playerNames, playerType)
 			end
 			table.sort(playerNames)
+			
 
-			--AFFECT ALL
+			optionID = optionID + 1
 			ModConfigMenu.AddTitle(modName, subcategoryName, objectData.DisplayName)
+
 			if #playerNames > 1 then
+				optionID = optionID + 1
+
+				--AFFECT ALL
 				ModConfigMenu.AddSetting(modName, subcategoryName, {
 					Type = ModConfigMenu.OptionType.NUMBER,
 					CurrentSetting = function()
@@ -99,8 +106,10 @@ function mcm:GenerateModConfigMenu(noItems)
 						elseif objectData.SelectedModIndex == -1 then
 							display = "Randomized"
 						else
-							local selectedModIndex = objectData.SelectedModIndex
-							local settingName = #objectData.AllMods > 1 and objectData.AllMods[selectedModIndex] .. " (" .. objectData.SelectedModIndex .. "/" .. #objectData.AllMods .. ")" or "Enabled"
+							local settingName  = objectData.AllMods[objectData.SelectedModIndex]
+							if #objectData.AllMods > 1 then
+								settingName = settingName ..  " (" .. objectData.SelectedModIndex .. "/" .. #objectData.AllMods .. ")"
+							end
 							display = settingName
 						end
 						return "All: " .. display
@@ -120,7 +129,9 @@ function mcm:GenerateModConfigMenu(noItems)
 					Info = "Changes settings for all characters if the setting is available to them."
 				})
 			end
-
+			
+			optionID = optionID + 1
+			
 			--CHARACTER
 			ModConfigMenu.AddSetting(modName, subcategoryName, {
 				Type = ModConfigMenu.OptionType.NUMBER,
@@ -140,6 +151,17 @@ function mcm:GenerateModConfigMenu(noItems)
 				end
 			})
 
+			local function getMinOrMaxSetting(max)
+				local currentModData = objectData.AllPlayers[playerNames[objectData.SelectedPlayerIndex]].ModData
+				if max then
+					return #currentModData
+				else
+					return #currentModData > 1 and -1 or 0
+				end
+			end
+
+			optionID = optionID + 1
+
 			--CHOOSE SETTING
 			ModConfigMenu.AddSetting(modName, subcategoryName, {
 				Type = ModConfigMenu.OptionType.NUMBER,
@@ -147,8 +169,8 @@ function mcm:GenerateModConfigMenu(noItems)
 					local playerData = objectData.AllPlayers[playerNames[objectData.SelectedPlayerIndex]]
 					return playerData.SelectedModIndex
 				end,
-				Minimum = #objectData.AllPlayers[playerNames[objectData.SelectedPlayerIndex]].ModData > 1 and -1 or 0,
-				Maximum = #objectData.AllPlayers[playerNames[objectData.SelectedPlayerIndex]].ModData,
+				Minimum = getMinOrMaxSetting(false),
+				Maximum = getMinOrMaxSetting(true),
 				ModifyBy = 1,
 				Display = function()
 					local playerData = objectData.AllPlayers[playerNames[objectData.SelectedPlayerIndex]]
@@ -158,18 +180,28 @@ function mcm:GenerateModConfigMenu(noItems)
 						display = "Disabled"
 					elseif selectedModIndex == -1 then
 						display = "Randomized"
+					elseif not playerData.ModData[selectedModIndex] then
+						return "ERROR: No data at index " .. selectedModIndex
 					else
-						local settingName = #playerData.ModData > 1 and playerData.ModData[selectedModIndex].ModName .. " (" .. playerData.SelectedModIndex .. "/" .. #playerData.ModData .. ")" or "Enabled"
+						local settingName  = playerData.ModData[selectedModIndex].ModName
+						if #playerData.ModData > 1 then
+							settingName = settingName .. " (" .. playerData.SelectedModIndex .. "/" .. #playerData.ModData .. ")"
+						end
 						display = settingName
 					end
 
-					return "Setting: " .. display
+					return "Skin: " .. display
 				end,
 				OnChange = function(currentNum)
 					local playerData = objectData.AllPlayers[playerNames[objectData.SelectedPlayerIndex]]
 					playerData.SelectedModIndex = currentNum
+					local currentOption = ModConfigMenu.MenuData[categoryID].Subcategories[ModConfigMenu.GetSubcategoryIDByName(categoryID, subcategoryName)].Options[optionID]
+					currentOption.Minimum = getMinOrMaxSetting(false)
+					currentOption.Maximum = getMinOrMaxSetting(true)
 				end
 			})
+
+			lastOptionID = optionID + 1
 			ModConfigMenu.AddSpace(modName, subcategoryName)
 		end
 	end
