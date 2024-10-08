@@ -339,7 +339,8 @@ function UniqueItemsAPI:ReplaceSwordSplashOnTearDeath(tear)
 	}
 	for _, variant in pairs(splashVariants) do
 		for _, effect in pairs(Isaac.FindByType(EntityType.ENTITY_EFFECT, variant)) do
-			if tear.Position:Distance(effect.Position) == 0 then
+			--I don't know HOW but Isaac.FindByType can return a number???
+			if type(effect) == "userdata" and tear.Position:Distance(effect.Position) == 0 then
 				tryReplaceSplash(effect)
 			end
 		end
